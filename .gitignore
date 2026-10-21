@@ -1,0 +1,13 @@
+node_modules
+dist
+.output
+.tanstack
+.vercel
+.grok
+artifacts
+attachments
+screenshots
+.env
+.env.*
+*.log
+.DS_Store

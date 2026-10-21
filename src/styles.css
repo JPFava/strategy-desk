@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #101416;
+  --color-surface: #182023;
+  --color-paper: #f3ecdf;
+  --color-bronze: #e0b56a;
+  --color-buy: #3cba7a;
+  --color-sell: #e36d5c;
+  --color-line: #2a363a;
+  --color-muted: #a39888;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow-panel: 0 1px 0 color-mix(in oklab, var(--color-paper) 6%, transparent);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-bronze) 35%, transparent);
+    color: var(--color-paper);
+  }
+}
+
+@layer components {
+  .desk-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .desk-input {
+    height: 2.75rem;
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-line);
+    background: var(--color-ink);
+    color: var(--color-paper);
+    padding-inline: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    color-scheme: dark;
+  }
+
+  .desk-input:focus-visible {
+    border-color: var(--color-bronze);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-bronze) 35%, transparent);
+  }
+
+  .desk-chip {
+    height: 2.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: transparent;
+    color: var(--color-paper);
+    padding-inline: 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition:
+      background-color 150ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 150ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .desk-chip[data-on="true"] {
+    border-color: var(--color-bronze);
+    background: var(--color-bronze);
+    color: var(--color-ink);
+  }
+
+  .desk-chip:focus-visible {
+    outline: 2px solid var(--color-bronze);
+    outline-offset: 2px;
+  }
+
+  .blotter-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-chip,
+  .desk-thumb {
+    transition: none;
+  }
+}
