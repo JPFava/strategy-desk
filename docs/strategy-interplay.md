@@ -160,11 +160,31 @@ Volume divided by its average must be at least the multiple. The average length 
 
 **With others.** Direction AND strength is "up and strong" or, on the sell, "down and strong." Strength OR direction is almost the same as direction, because a strong reading is already on one side of 50. Use AND.
 
+### RTI negative
+
+**Idea.** The close is through the lower edge of the RTI band. The reading is below zero. Exactly zero does not pass. Both sides start off. There is no number to set.
+
+**Buy and sell.** The same test. It stays true for every bar the reading remains negative, not only the bar it crosses.
+
+**With others.** This is stricter than RTI below at 0, because a reading of zero fails here and passes there. AND it with a valley when you want the turn up to happen while the reading is still negative. OR it with RTI below if either kind of washout should count.
+
+### RTI reversal
+
+**Idea.** A valley or a peak in the RTI reading, isolated inside a window. **Periods** starts at **6**. Both sides start off. The buy is the valley. The sell is the peak.
+
+**Buy.** The lowest reading in the window sits inside it, not on the newest bar and not only on the oldest, and the newest reading is back above that low.
+
+**Sell.** The highest reading in the window sits inside it, and the newest reading is back under that high.
+
+A straight rise or a straight fall does not pass. The vote stays true while that extreme is still inside the window and the reading has not returned to it. A longer window skips the small turns.
+
+**With others.** A valley AND RTI negative buys the turn up only while the reading is still below zero. A valley alone also buys turns that happen above zero. A peak OR the RTI line sells on either the isolated high or a break of the line. One matrix row with both cells marked waits for the peak and the line break on the same bar.
+
 ### RTI below
 
-**Idea.** The reading is washed out, near the bottom of its band. Buy only. There is no sell on this card. It starts off. The level starts at **1**, the lower edge of the band.
+**Idea.** The reading is washed out, near or through the bottom of its band. Buy only. There is no sell on this card. It starts off. The level starts at **1**, the lower edge of the band. The level may be negative.
 
-**Buy.** The reading is at or under the level. A reading of exactly 1 passes. Raise the level if you want a milder dip.
+**Buy.** The reading is at or under the level. A reading of exactly 1 passes. A level of 0 also passes a reading of zero. Raise the level if you want a milder dip. Use RTI negative when a reading of zero should fail.
 
 **With others.** This is the buy for "the averages are stacked and the market is exhausted." Put the EMA touch in the same AND, or in the same matrix row, as this card. It will not fire often at a level of 1. That is the point.
 
@@ -385,6 +405,8 @@ The candle read names the rules that fired. The blotter names them on the fill. 
 | Many small round trips and a stop under the buy | Last fill sell, your dollar target, stop on. Drop hold off. |
 | Either of two dip recipes | Buy matrix. One row per recipe. |
 | The averages tight, and RTI washed out | EMA relation touch, AND RTI below. |
+| Buy while RTI is negative | RTI negative, buy on. A reading of zero does not pass. |
+| Buy an RTI valley, or sell an RTI peak | RTI reversal. Periods is the width of the turn. |
 | Sell when RTI breaks its line, or on a stop | Sell matrix. One row for the RTI line, one row for last fill. |
 | Do not sell into a 10% hole | Drop hold on. Do not also expect the stop to fill during that hole. |
 | A rule that must agree with the others | AND, or a mark in the same row. |

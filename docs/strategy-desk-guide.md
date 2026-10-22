@@ -18,6 +18,10 @@ Your symbol, bar size, switches, and account numbers are saved in this browser. 
 
 You need Node.js 22 or newer.
 
+Windows: double-click `install-desk.bat`. Mac: double-click `install-desk.command`. Both files are in the project folder, and the running desk serves the same files at `/install-desk.bat` and `/install-desk.command`. Each one installs Node.js 22 or newer when it is missing, installs the desk packages, starts the desk, and opens `http://127.0.0.1:8080`. The file has to sit in the Strategy Desk folder, or in the `public` folder inside it. On a Mac, the first open may need a right-click and **Open**, because the file was downloaded.
+
+Or run it yourself:
+
 ```bash
 npm install
 npm run dev
@@ -231,9 +235,17 @@ The starter uses both sides.
 
 Direction and strength are separate votes. Turn both on and set them to AND when a buy should be up and strong, not merely a hair above 50. They do not replace the 4-hour line. The line is the close versus a fitted path. This index is the close versus a volatility band.
 
-**Buy below.** Buy when the reading is at or under a level. The level starts at **1**, and the buy starts off. A reading of exactly 1 passes. There is no sell on this test. A level of 1 is the lower edge of the band. Raise it if you want a milder dip.
+**Negative.** Passes while the reading is below zero. Zero is the lower edge of the band, so this is a close through that edge. A reading of exactly zero does not pass. Both sides start off, and either side can use the same test. The vote stays true on every negative bar, not only the bar it crosses.
 
-**Its own line.** A slower exponential average of the same reading. Starter length **10**, and both sides start off. The sell passes while the reading is under that line. The buy passes while the reading is above it. Equal does not pass either side. The vote stays true for every bar the reading remains on that side of the line, not only the bar it crosses. This line is not the 4-hour price trend line. That line is in dollars. This reading is not, so the two are never compared.
+**Reversal.** Isolates a valley or a peak in the reading. **Periods** is the window, and it starts at **6**. The buy is the valley. The sell is the peak. Both start off.
+
+Over that many readings, the low or the high has to sit inside the window. It cannot be the newest bar, and it cannot be only the oldest bar. A valley passes while the newest reading is back above that interior low. A peak passes while the newest reading is back under that interior high. A straight rise or a straight fall does not pass. A longer window skips the small turns. The vote stays true while that extreme is still inside the window and the reading has not returned to it. When the extreme ages out of the window, or a new extreme prints on the newest bar, the vote goes low.
+
+**Buy below.** Buy when the reading is at or under a level. The level starts at **1**, and the buy starts off. The level may be negative. A level of 0 passes on zero and on every negative reading. A level of 1 also passes a reading that is only at the lower edge of the band. A reading of exactly 1 passes. There is no sell on this test. Raise the level if you want a milder dip. Use **Negative** when zero itself should fail.
+
+**Its own line.** A slower exponential average of the same reading. Starter length **10**, and both sides start off. The buy passes while the reading is above that line. The sell passes while the reading is under it. Equal does not pass either side. The vote stays true for every bar the reading remains on that side of the line, not only the bar it crosses. This line is not the 4-hour price trend line. That line is in dollars. This reading is not, so the two are never compared.
+
+The lower chart draws a bronze line at 0. Its scale starts at 0 to 100 and stretches, above or below, when a turned-on reading leaves that range. 0, 50, and 100 stay marked.
 
 ### Money flow
 

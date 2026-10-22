@@ -292,10 +292,15 @@ function tune(params: DeskParams, account: AccountSettings): Tuned {
           ...side(params.rti.line),
           length: Math.round(clampNum(params.rti.line.length, 2, 200, 10)),
         },
+        negative: side(params.rti.negative),
+        reversal: {
+          ...side(params.rti.reversal),
+          bars: Math.round(clampNum(params.rti.reversal.bars, 3, 80, 6)),
+        },
         below: {
           ...side(params.rti.below),
           sellOn: false,
-          level: clampNum(params.rti.below.level, 0, 150, 1),
+          level: clampNum(params.rti.below.level, -200, 200, 1),
         },
       },
       vwap: side(params.vwap),
@@ -725,6 +730,32 @@ export function mfiFacts(i: number, ind: Indicators, params: DeskParams): { mfi:
   return { mfi, buy, sell };
 }
 
+export function rtiSwing(series: readonly (number | null)[], i: number, bars: number): { valley: boolean; peak: boolean } {
+  const width = Math.max(3, Math.round(bars));
+  const start = i - width + 1;
+  if (start < 0) return { valley: false, peak: false };
+  let low = Infinity;
+  let high = -Infinity;
+  let lowAt = -1;
+  let highAt = -1;
+  for (let j = start; j <= i; j++) {
+    const value = series[j];
+    if (value == null || !Number.isFinite(value)) return { valley: false, peak: false };
+    if (value < low) {
+      low = value;
+      lowAt = j;
+    }
+    if (value > high) {
+      high = value;
+      highAt = j;
+    }
+  }
+  return {
+    valley: lowAt !== start && lowAt !== i && (series[i] as number) > low,
+    peak: highAt !== start && highAt !== i && (series[i] as number) < high,
+  };
+}
+
 export function rtiFacts(
   i: number,
   ind: Indicators,
@@ -738,6 +769,10 @@ export function rtiFacts(
   strSell: boolean;
   lineBuy: boolean;
   lineSell: boolean;
+  negBuy: boolean;
+  negSell: boolean;
+  revBuy: boolean;
+  revSell: boolean;
   lowBuy: boolean;
 } {
   const rti = ind.rti[i];
@@ -746,6 +781,8 @@ export function rtiFacts(
   const lined = ready && num(line);
   const buyFloor = params.rti.strength.buyFloor;
   const sellFloor = params.rti.strength.sellFloor;
+  const negative = ready && (rti as number) < -1e-9;
+  const swing = rtiSwing(ind.rti, i, params.rti.reversal.bars);
   return {
     rti,
     line,
@@ -755,6 +792,10 @@ export function rtiFacts(
     strSell: ready && (rti as number) <= 50 - sellFloor + 1e-9,
     lineBuy: lined && (rti as number) > (line as number) + 1e-9,
     lineSell: lined && (rti as number) < (line as number) - 1e-9,
+    negBuy: negative,
+    negSell: negative,
+    revBuy: swing.valley,
+    revSell: swing.peak,
     lowBuy: ready && (rti as number) <= params.rti.below.level + 1e-9,
   };
 }
@@ -1115,7 +1156,7 @@ export function explainStrategies(
   });
   const lineText =
     num(rti.rti) && num(rti.line)
-      ? `Relative trend ${px(rti.rti)} versus its ${params.rti.line.length}-bar line ${px(rti.line)}. The sell stays true while the reading is under that line.`
+      ? `Relative trend ${px(rti.rti)} versus its ${params.rti.line.length}-bar line ${px(rti.line)}. Buy stays true while the reading is above that line. Sell stays true while it is under that line.`
       : "The relative-trend line is not ready.";
   reads.push({
     id: "rtiLine",
@@ -1126,6 +1167,32 @@ export function explainStrategies(
     sellOn: params.rti.line.sellOn,
     buy: oneCheck("Above its line", rti.lineBuy, lineText),
     sell: oneCheck("Under its line", rti.lineSell, lineText),
+  });
+  const negText = num(rti.rti)
+    ? `Relative trend ${px(rti.rti)}. Below zero means the close is through the lower edge of its band. The test stays true while the reading remains negative.`
+    : "Relative trend is not ready.";
+  reads.push({
+    id: "rtiNeg",
+    name: strategyName("rtiNeg", params),
+    wantBuy: rti.negBuy,
+    wantSell: rti.negSell,
+    buyOn: params.rti.negative.buyOn,
+    sellOn: params.rti.negative.sellOn,
+    buy: oneCheck("Below zero", rti.negBuy, negText),
+    sell: oneCheck("Below zero", rti.negSell, negText),
+  });
+  const revText = num(rti.rti)
+    ? `Relative trend ${px(rti.rti)} over ${params.rti.reversal.bars} bars. A valley is a low inside that window with the newest reading back above it. A peak is a high inside that window with the newest reading back under it.`
+    : "Relative trend is not ready.";
+  reads.push({
+    id: "rtiRev",
+    name: strategyName("rtiRev", params),
+    wantBuy: rti.revBuy,
+    wantSell: rti.revSell,
+    buyOn: params.rti.reversal.buyOn,
+    sellOn: params.rti.reversal.sellOn,
+    buy: oneCheck("Valley", rti.revBuy, revText),
+    sell: oneCheck("Peak", rti.revSell, revText),
   });
   const lowText = num(rti.rti)
     ? `Relative trend ${px(rti.rti)} versus a buy level of ${px(params.rti.below.level)}. Buy only at or under that level. This test does not sell.`
@@ -1344,6 +1411,24 @@ function barVotes(i: number, bars: Bar[], ind: Indicators, params: DeskParams, i
     rti.lineSell,
     asJoin(params.rti.line.buyJoin),
     asJoin(params.rti.line.sellJoin),
+  );
+  add(
+    "rtiNeg",
+    params.rti.negative.buyOn,
+    params.rti.negative.sellOn,
+    rti.negBuy,
+    rti.negSell,
+    asJoin(params.rti.negative.buyJoin),
+    asJoin(params.rti.negative.sellJoin),
+  );
+  add(
+    "rtiRev",
+    params.rti.reversal.buyOn,
+    params.rti.reversal.sellOn,
+    rti.revBuy,
+    rti.revSell,
+    asJoin(params.rti.reversal.buyJoin),
+    asJoin(params.rti.reversal.sellJoin),
   );
   add("rtiBelow", params.rti.below.buyOn, false, rti.lowBuy, false, asJoin(params.rti.below.buyJoin), "and");
   const inside = vwapFacts(i, bars, ind);

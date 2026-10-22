@@ -9,6 +9,7 @@ import {
   matrixFired,
   mfiFacts,
   rtiFacts,
+  rtiSwing,
   relationFacts,
   simulate,
   sizeBuy,
@@ -329,6 +330,8 @@ function quiet(params: DeskParams): DeskParams {
       direction: off(params.rti.direction),
       strength: off(params.rti.strength),
       line: off(params.rti.line),
+      negative: off(params.rti.negative),
+      reversal: off(params.rti.reversal),
       below: off(params.rti.below),
     },
     vwap: off(params.vwap),
@@ -809,6 +812,32 @@ test("relative trend buys at or under its buy-below level", () => {
   assert.equal(down.lowBuy, true);
 });
 
+test("relative trend can pass below zero", () => {
+  const t0 = atEastern(2026, 3, 2, 10, 0);
+  const flat = Array.from({ length: 20 }, (_, i) => bar(t0 + i * 300_000, 100));
+  const broke = [...flat, bar(t0 + 20 * 300_000, 50)];
+  const params = quiet(defaultParams());
+  params.rti.length = 10;
+  params.rti.mult = 2;
+  params.rti.smooth = 1;
+  params.rti.negative = { ...params.rti.negative, buyOn: true, sellOn: true };
+  const calm = rtiFacts(19, computeIndicators(flat, params), params);
+  const through = rtiFacts(20, computeIndicators(broke, params), params);
+  assert.equal(calm.negBuy, false);
+  assert.ok((through.rti ?? 0) < 0);
+  assert.equal(through.negBuy, true);
+  assert.equal(through.negSell, true);
+});
+
+test("an RTI reversal is an interior valley or peak", () => {
+  const valley = [4, 3, 1, 2, 3];
+  assert.deepEqual(rtiSwing(valley, 4, 5), { valley: true, peak: false });
+  assert.deepEqual(rtiSwing([5, 4, 1], 2, 3), { valley: false, peak: false });
+  const peak = [1, 2, 3, 5, 4];
+  assert.deepEqual(rtiSwing(peak, 4, 5), { valley: false, peak: true });
+  assert.deepEqual(rtiSwing([1, 2, 3, 4], 3, 4), { valley: false, peak: false });
+});
+
 test("a matrix row is an AND and any row can fire", () => {
   const terms = [
     { id: "lower" as const, pass: true, join: "and" as const },
@@ -880,7 +909,7 @@ test("starter book matches the SOXL 5-minute baseline gates", () => {
   assert.equal(params.step.buyOn || params.step.sellOn, false);
   assert.equal(params.ema20.buyOn || params.ema50.buyOn || params.ema100.buyOn || params.emaA.buyOn || params.emaB.buyOn || params.emaC.buyOn, false);
   assert.equal(params.trend.slope.buyOn || params.trend.slope.sellOn || params.trend.line.buyOn || params.trend.line.sellOn, false);
-  assert.equal(params.rti.direction.buyOn || params.rti.direction.sellOn || params.rti.strength.buyOn || params.rti.strength.sellOn || params.rti.line.buyOn || params.rti.line.sellOn || params.rti.below.buyOn, false);
+  assert.equal(params.rti.direction.buyOn || params.rti.direction.sellOn || params.rti.strength.buyOn || params.rti.strength.sellOn || params.rti.line.buyOn || params.rti.line.sellOn || params.rti.negative.buyOn || params.rti.negative.sellOn || params.rti.reversal.buyOn || params.rti.reversal.sellOn || params.rti.below.buyOn, false);
   assert.deepEqual([params.drop.sellOn, params.drop.dropPct, params.drop.recoverPct], [true, 10, 50]);
   assert.equal(params.lower.buyJoin, "and");
   assert.equal(params.upper.sellJoin, "and");

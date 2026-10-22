@@ -37,6 +37,8 @@ export type StrategyId =
   | "rtiDir"
   | "rtiStr"
   | "rtiLine"
+  | "rtiNeg"
+  | "rtiRev"
   | "rtiBelow"
   | "vwap"
   | "vwapPx"
@@ -86,6 +88,8 @@ export const STRATEGY_ORDER: StrategyId[] = [
   "rtiDir",
   "rtiStr",
   "rtiLine",
+  "rtiNeg",
+  "rtiRev",
   "rtiBelow",
   "vwap",
   "vwapPx",
@@ -111,6 +115,8 @@ const STRATEGY_LABEL: Record<StrategyId, string> = {
   rtiDir: "RTI direction",
   rtiStr: "RTI strength",
   rtiLine: "RTI line",
+  rtiNeg: "RTI negative",
+  rtiRev: "RTI reversal",
   rtiBelow: "RTI below",
   vwap: "VWAP in the candle",
   vwapPx: "Close versus VWAP",
@@ -163,6 +169,8 @@ export function strategyShort(id: StrategyId, params?: DeskParams): string {
   if (id === "rtiDir") return "RTI dir";
   if (id === "rtiStr") return "RTI str";
   if (id === "rtiLine") return "RTI line";
+  if (id === "rtiNeg") return "RTI < 0";
+  if (id === "rtiRev") return "RTI turn";
   if (id === "rtiBelow") return "RTI low";
   if (id === "vwap") return "VWAP";
   if (id === "vwapPx") return "vs VWAP";
@@ -293,6 +301,10 @@ export type RtiLine = SideRule & {
   length: number;
 };
 
+export type RtiReversal = SideRule & {
+  bars: number;
+};
+
 export type RtiBelow = SideRule & {
   level: number;
 };
@@ -304,6 +316,8 @@ export type RtiSetup = {
   direction: RtiLevel;
   strength: RtiStrength;
   line: RtiLine;
+  negative: SideRule;
+  reversal: RtiReversal;
   below: RtiBelow;
 };
 
@@ -400,6 +414,8 @@ export function defaultParams(): DeskParams {
       direction: { buyOn: false, sellOn: false, up: 50, down: 50 },
       strength: { buyOn: false, sellOn: false, buyFloor: 10, sellFloor: 10 },
       line: { buyOn: false, sellOn: false, length: 10 },
+      negative: { buyOn: false, sellOn: false },
+      reversal: { buyOn: false, sellOn: false, bars: 6 },
       below: { buyOn: false, sellOn: false, level: 1 },
     },
     vwap: { buyOn: true, sellOn: false },
@@ -476,6 +492,8 @@ export function normalizeJoins(params: DeskParams): DeskParams {
       direction: stamp(params.rti.direction),
       strength: stamp(params.rti.strength),
       line: stamp(params.rti.line),
+      negative: stamp(params.rti.negative),
+      reversal: stamp(params.rti.reversal),
       below: stamp(params.rti.below),
     },
     vwap: stamp(params.vwap),
@@ -534,6 +552,10 @@ export function ruleSideOn(params: DeskParams, id: StrategyId, side: "buy" | "se
       return on(params.rti.strength);
     case "rtiLine":
       return on(params.rti.line);
+    case "rtiNeg":
+      return on(params.rti.negative);
+    case "rtiRev":
+      return on(params.rti.reversal);
     case "rtiBelow":
       return side === "buy" && params.rti.below.buyOn;
     case "vwap":

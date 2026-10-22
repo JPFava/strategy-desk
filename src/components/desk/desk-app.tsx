@@ -270,6 +270,12 @@ function mergeRti(base: DeskParams["rti"], saved: unknown): DeskParams["rti"] {
       };
     })(),
     line: mergeSides(base.line, raw.line),
+    negative: mergeSides(base.negative, raw.negative),
+    reversal: (() => {
+      const merged = mergeSides(base.reversal, raw.reversal);
+      const node = raw.reversal && typeof raw.reversal === "object" ? (raw.reversal as Record<string, unknown>) : {};
+      return { ...merged, bars: typeof node.bars === "number" ? node.bars : base.reversal.bars };
+    })(),
     below: mergeSides(base.below, raw.below),
   };
 }
@@ -1442,6 +1448,65 @@ export function DeskApp() {
                 </div>
                 <div className="mt-4 border-t border-line pt-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h4 className="text-sm font-medium">Negative</h4>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <SideSwitch
+                        side="buy"
+                        checked={params.rti.negative.buyOn}
+                        join={asJoin(params.rti.negative.buyJoin)}
+                        label="RTI negative buy"
+                        onChange={(buyOn) => setParams((p) => ({ ...p, rti: { ...p.rti, negative: { ...p.rti.negative, buyOn } } }))}
+                        onJoin={(buyJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, negative: { ...p.rti.negative, buyJoin } } }))}
+                      />
+                      <SideSwitch
+                        side="sell"
+                        checked={params.rti.negative.sellOn}
+                        join={asJoin(params.rti.negative.sellJoin)}
+                        label="RTI negative sell"
+                        onChange={(sellOn) => setParams((p) => ({ ...p, rti: { ...p.rti, negative: { ...p.rti.negative, sellOn } } }))}
+                        onJoin={(sellJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, negative: { ...p.rti.negative, sellJoin } } }))}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-muted text-pretty">
+                    Passes while the reading is below zero. Zero is the lower edge of the band, so this is a close through that edge. It stays true on every negative bar, not only the bar it crosses. A reading of exactly zero does not pass.
+                  </p>
+                </div>
+                <div className="mt-4 border-t border-line pt-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h4 className="text-sm font-medium">Reversal</h4>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <SideSwitch
+                        side="buy"
+                        checked={params.rti.reversal.buyOn}
+                        join={asJoin(params.rti.reversal.buyJoin)}
+                        label="RTI valley"
+                        onChange={(buyOn) => setParams((p) => ({ ...p, rti: { ...p.rti, reversal: { ...p.rti.reversal, buyOn } } }))}
+                        onJoin={(buyJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, reversal: { ...p.rti.reversal, buyJoin } } }))}
+                      />
+                      <SideSwitch
+                        side="sell"
+                        checked={params.rti.reversal.sellOn}
+                        join={asJoin(params.rti.reversal.sellJoin)}
+                        label="RTI peak"
+                        onChange={(sellOn) => setParams((p) => ({ ...p, rti: { ...p.rti, reversal: { ...p.rti.reversal, sellOn } } }))}
+                        onJoin={(sellJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, reversal: { ...p.rti.reversal, sellJoin } } }))}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-muted text-pretty">
+                    Buy on a valley and sell on a peak. Over this many readings, the low or the high has to sit inside the window, not on the newest bar and not only on the oldest. A valley passes while the newest reading is back above that low. A peak passes while it is back under that high. A longer window skips the small turns.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <NumField
+                      label="Periods"
+                      value={params.rti.reversal.bars}
+                      onChange={(bars) => setParams((p) => ({ ...p, rti: { ...p.rti, reversal: { ...p.rti.reversal, bars } } }))}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-line pt-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Buy below</h4>
                     <SideSwitch
                       side="buy"
@@ -1453,7 +1518,7 @@ export function DeskApp() {
                     />
                   </div>
                   <p className="mt-2 text-sm text-muted text-pretty">
-                    Buy when the reading is at or under this level. A level of 1 means the close is at or through the lower edge of its band. This test does not sell.
+                    Buy when the reading is at or under this level. The level can be negative. A level of 0 passes on zero and on every negative reading. A level of 1 also passes a reading that is only at the lower edge of the band. This test does not sell.
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <NumField
@@ -1487,7 +1552,7 @@ export function DeskApp() {
                     </div>
                   </div>
                   <p className="mt-2 text-sm text-muted text-pretty">
-                    A slower average of this same reading. Sell while the reading is under that line. Buy while it is above the line. This is not the 4-hour price trend line. That line is in dollars, and this reading is not.
+                    Buy while the reading is above this line. Sell while it is under the line. Either vote stays true for every bar the reading remains on that side, not only the bar it crosses. This is the RTI line, not the 4-hour price trend. That line is in dollars, and this reading is not.
                   </p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <NumField
