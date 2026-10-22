@@ -1,6 +1,6 @@
 #!/bin/bash
-# Mac: open Terminal, type "bash " (with a space), drag this file in, and press Return.
-# Do not double-click it. macOS blocks that.
+# Mac: do not double-click this file, and do not run it from Downloads.
+# Open Terminal and paste the command in the README.
 set -euo pipefail
 cd "$(dirname "$0")"
 if [[ ! -f package.json && -f ../package.json ]]; then

