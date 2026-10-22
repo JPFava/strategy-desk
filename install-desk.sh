@@ -1,5 +1,6 @@
 #!/bin/bash
-# Double-click to install Node.js if needed, install the desk, and open it.
+# Mac: open Terminal, type "bash " (with a space), drag this file in, and press Return.
+# Do not double-click it. macOS blocks that.
 set -euo pipefail
 cd "$(dirname "$0")"
 if [[ ! -f package.json && -f ../package.json ]]; then
@@ -7,7 +8,7 @@ if [[ ! -f package.json && -f ../package.json ]]; then
 fi
 if [[ ! -f package.json ]]; then
   echo "This file has to sit in the Strategy Desk folder, next to package.json."
-  echo "If you downloaded only this file, put it in that folder and double-click it again."
+  echo "Unzip the project, then run: bash install-desk.sh"
   read -r -p "Press Enter to close."
   exit 1
 fi
