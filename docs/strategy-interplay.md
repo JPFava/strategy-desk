@@ -1,6 +1,6 @@
 # How the strategies work
 
-Strategy Desk 1.4.0. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
+Strategy Desk 1.5.0. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
 
 Play money only. A high signal is not a live order.
 
@@ -190,13 +190,15 @@ A straight rise or a straight fall does not pass. The vote stays true while that
 
 ### RTI line
 
-**Idea.** The reading compared with a slower average of itself. Starter length of that average is **10**. Both sides start off.
+**Idea.** The reading compared with a slower average of itself, or with the direction of that average, or with a number. Starter length of that average is **10**. Both sides start off. A side passes when any checked test on the card passes.
 
-**Buy.** The reading is above its line. Equal does not pass.
+**Versus the line** starts checked. The buy passes while the reading is above its line. The sell passes while it is below. Equal does not pass.
 
-**Sell.** The reading is below its line. Equal does not pass.
+**Trend** starts off. The buy passes while the line is rising. The sell passes while it is falling.
 
-The vote stays true for every bar the reading remains on that side. It is not only the crossing bar.
+**Above or below a value** starts off. The buy passes at or above the buy value. The sell passes at or under the sell value. Both start at **50**.
+
+The vote stays true for every bar a checked test remains true. It is not only the crossing bar.
 
 **With others.** "Sell when RTI goes under its line" is this card, sell on, and no other sell rule. If you AND it with the upper band, you will only sell that break when price is also stretched, which fights the idea. If you OR it with the upper band, either a stretch or a break of the RTI line can sell. This line is not the 4-hour price line.
 

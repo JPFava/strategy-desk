@@ -28,7 +28,6 @@ import {
   laneLabel,
   normalizeJoins,
   relationPhrase,
-  robustParams,
   ruleSideOn,
   sessionDate,
   sessionKey,
@@ -56,10 +55,14 @@ import {
 import { buildSampleTape } from "@/lib/desk/sample";
 import { fetchTape, type Tape } from "@/lib/desk/tape";
 import { GUIDE_PATH, PRODUCT_VERSION, STRATEGIES_PATH } from "@/lib/desk/version";
+import { applyUnlock, issueUnlock, readUnlock, strategiesOff, UNLOCK_KIND, type AllowId, type UnlockFile } from "@/lib/desk/unlock";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const STORE_KEY = "strategy-desk-settings-v4";
 const BOOKS_KEY = "strategy-desk-books-v1";
+const UNLOCK_KEY = "strategy-desk-unlock-v1";
+/** This workspace is the master desk. A distributed copy has no VITE_DESK_EDITION, so it will not fire a strategy until an unlock file is loaded. */
+const EDITION = import.meta.env.VITE_DESK_EDITION === "master" ? "master" : "desk";
 
 type SavedBook = {
   id: string;
@@ -891,6 +894,12 @@ function combinationCopy(side: "buy" | "sell", explain: Explain, params: DeskPar
   return parts.join(" ");
 }
 
+function acceptUnlock(value: unknown): UnlockFile | null {
+  const read = readUnlock(value);
+  if (!read) return null;
+  return { kind: UNLOCK_KIND, tester: read.tester, issued: read.issued, allow: read.allow, params: mergeParams(read.params) };
+}
+
 export function DeskApp() {
   const loadTape = useServerFn(fetchTape);
   const loadRef = useRef(loadTape);
@@ -914,6 +923,10 @@ export function DeskApp() {
   const [bookName, setBookName] = useState("");
   const [pickedBook, setPickedBook] = useState("");
   const [booksReady, setBooksReady] = useState(false);
+  const [unlock, setUnlock] = useState<UnlockFile | null>(null);
+  const [testerName, setTesterName] = useState("");
+  const [allow, setAllow] = useState<AllowId[]>([]);
+  const [unlockError, setUnlockError] = useState("");
 
   useEffect(() => {
     const applyBaseline = () => {
@@ -980,6 +993,28 @@ export function DeskApp() {
   }, [books, booksReady]);
 
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem(UNLOCK_KEY);
+      if (!raw) return;
+      const next = acceptUnlock(JSON.parse(raw));
+      if (next) setUnlock(next);
+    } catch {
+      /* a bad saved file is the same as no file */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (unlock) localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlock));
+    else localStorage.removeItem(UNLOCK_KEY);
+  }, [unlock]);
+
+  useEffect(() => {
+    if (EDITION !== "desk" || !unlock) return;
+    const sealed = applyUnlock(params, unlock);
+    if (canonical(sealed) !== canonical(params)) setParams(sealed);
+  }, [params, unlock]);
+
+  useEffect(() => {
     if (!ready) return;
     let cancel = false;
     setLoading(true);
@@ -1005,9 +1040,14 @@ export function DeskApp() {
     };
   }, [ready, symbol, interval, reload]);
 
+  const liveParams = useMemo(() => {
+    if (EDITION === "master") return runParams;
+    if (!unlock) return strategiesOff(runParams);
+    return applyUnlock(runParams, unlock);
+  }, [runParams, unlock]);
   const result = useMemo<SimResult | null>(
-    () => (tape ? simulate(tape.bars, tape.interval, runParams, runAccount) : null),
-    [tape, runParams, runAccount],
+    () => (tape ? simulate(tape.bars, tape.interval, liveParams, runAccount) : null),
+    [tape, liveParams, runAccount],
   );
   const dirty = canonical(params) !== canonical(runParams) || canonical(account) !== canonical(runAccount);
 
@@ -1025,7 +1065,7 @@ export function DeskApp() {
   const shownFills = book === "play" ? (result?.fills ?? []) : LIVE_FILLS;
   const explain =
     book === "play" && result && tape && selected != null && result.trace[selected]
-      ? explainAt(selected, tape.bars, result.indicators, runParams, tape.interval, result.trace[selected])
+      ? explainAt(selected, tape.bars, result.indicators, liveParams, tape.interval, result.trace[selected])
       : null;
 
   function submitSymbol(event: FormEvent) {
@@ -1044,15 +1084,6 @@ export function DeskApp() {
   function recalculate() {
     setRunParams(params);
     setRunAccount(account);
-  }
-
-  function loadRobust() {
-    const nextParams = robustParams();
-    const nextAccount = defaultAccount();
-    setParams(nextParams);
-    setRunParams(nextParams);
-    setAccount(nextAccount);
-    setRunAccount(nextAccount);
   }
 
   function saveBook() {
@@ -1135,6 +1166,41 @@ export function DeskApp() {
     blocks.push("A trend test is on, and daily bars have no 4-hour window, so it blocks every fill.");
   }
 
+  const openCards: ReactNode[] = [];
+  const lockedCards: ReactNode[] = [];
+  let holdCount = 0;
+  const hold = (ids: AllowId[], node: ReactNode) => {
+    const allowed = EDITION === "master" || (unlock != null && ids.some((id) => unlock.allow.includes(id)));
+    (allowed ? openCards : lockedCards).push(
+      <fieldset key={`${ids.join("-") || "sealed"}-${holdCount++}`} disabled={!allowed} className="m-0 min-w-0 border-0 p-0">
+        {node}
+      </fieldset>,
+    );
+    return null;
+  };
+
+  function loadUnlock(next: UnlockFile) {
+    const sealed = applyUnlock(next.params, next);
+    setUnlock(next);
+    setUnlockError("");
+    setParams(sealed);
+    setRunParams(sealed);
+  }
+
+  function writeUnlockFile() {
+    const name = testerName.trim();
+    if (!name) return;
+    const file = issueUnlock(name, allow, params);
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tester";
+    link.download = `unlock-${slug}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div data-testid="desk" className="flex min-h-dvh flex-col bg-ink text-paper lg:grid lg:h-dvh lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden">
       <header className="order-1 border-b border-line px-4 py-4 lg:col-span-2 lg:order-none">
@@ -1209,9 +1275,6 @@ export function DeskApp() {
             <button type="button" className="desk-chip shrink-0" data-testid="recalculate" data-on={dirty} onClick={recalculate}>
               Recalculate
             </button>
-            <button type="button" className="desk-chip shrink-0" data-testid="robust-book" onClick={loadRobust}>
-              Robust book
-            </button>
           </form>
           <div className="flex items-center gap-3">
             <Switch.Root
@@ -1236,12 +1299,100 @@ export function DeskApp() {
           <section className="desk-panel p-4">
             <h2 className="text-sm font-medium">Strategies</h2>
             <p className="mt-1 text-sm text-muted text-pretty">
-              Each card is one test. Mark a side AND when it has to pass with the other AND rules, or OR when it can fire on its own. Together that is every AND, or any OR — [X and Y] or Z. This book starts as the SOXL 5-minute baseline, and every side that is on is AND. A buy needs the lower band within 2%, RSI at or under 30, a slope of at least −1% over 5 bars, volume of at least 1.5×, money flow at or under 50, and VWAP inside the candle. A sell needs the upper band within 2%, RSI at or over 60, and the close at or above VWAP. A session low 10% under the prior close blocks sells until price recovers halfway. A buy that session turns the hold off, including a drop that comes after the buy. Last fill, the hourly averages, and the trend tests start off. Robust book replaces that baseline with a slower money-flow dip: length 21, buy at or under 30, and only while the close is on or above the 4-hour line. It sells $2 above the last buy, or $1.25 under it, and leaves drop hold off so the stop can fire. The chart, blotter, and timing stay on the last calculation until you press Recalculate.
+              Each card is one test. Mark a side AND when it has to pass with the other AND rules, or OR when it can fire on its own. Together that is every AND, or any OR — [X and Y] or Z. This book starts as the SOXL 5-minute baseline, and every side that is on is AND. A buy needs the lower band within 2%, RSI at or under 30, a slope of at least −1% over 5 bars, volume of at least 1.5×, money flow at or under 50, and VWAP inside the candle. A sell needs the upper band within 2%, RSI at or over 60, and the close at or above VWAP. A session low 10% under the prior close blocks sells until price recovers halfway. A buy that session turns the hold off, including a drop that comes after the buy. The chart, blotter, and timing stay on the last calculation until you press Recalculate.
             </p>
             {tape && tape.interval !== "1d" && hoursOnTape > 0 && (
               <p className="mt-2 text-xs text-muted">This tape has {hoursOnTape} clock hours.</p>
             )}
             <div className="mt-4 flex flex-col gap-4">
+              <article className="rounded-lg border border-line p-3" data-testid="unlock-file">
+                {EDITION === "master" ? (
+                  <>
+                    <h3 className="text-sm font-medium">Unlock file</h3>
+                    <p className="mt-2 text-sm text-muted text-pretty">
+                      Write one file per tester. Check the strategies that tester may change. Every other setting is taken from this book and stays locked. Send the file. Their desk fires nothing until they load it.
+                    </p>
+                    <label className="mt-3 block text-xs text-muted">
+                      Tester
+                      <input
+                        className="desk-input mt-1"
+                        value={testerName}
+                        maxLength={40}
+                        data-testid="unlock-tester"
+                        onChange={(event) => setTesterName(event.target.value)}
+                      />
+                    </label>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {[...STRATEGY_ORDER, "matrix" as const].map((id) => (
+                        <label key={id} className="flex min-h-8 items-center gap-2 text-xs">
+                          <Checkbox.Root
+                            checked={allow.includes(id)}
+                            onCheckedChange={() => setAllow((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))}
+                            className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-line bg-ink text-ink outline-none focus-visible:ring-2 focus-visible:ring-bronze data-[state=checked]:border-bronze data-[state=checked]:bg-bronze"
+                            aria-label={`Allow ${id === "matrix" ? "Master matrix" : strategyName(id)}`}
+                          >
+                            <Checkbox.Indicator>
+                              <Check className="size-3" strokeWidth={2.5} />
+                            </Checkbox.Indicator>
+                          </Checkbox.Root>
+                          {id === "matrix" ? "Master matrix" : strategyName(id, params)}
+                        </label>
+                      ))}
+                    </div>
+                    <button type="button" className="desk-chip mt-3 disabled:opacity-40" data-testid="write-unlock" disabled={!testerName.trim()} onClick={writeUnlockFile}>
+                      Write unlock
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-sm font-medium">Unlock file</h3>
+                    <p className="mt-2 text-sm text-muted text-pretty">
+                      {unlock
+                        ? `Loaded for ${unlock.tester}. You can change ${unlock.allow.length ? unlock.allow.map((id) => (id === "matrix" ? "Master matrix" : strategyName(id, params))).join(", ") : "nothing"}. Every other strategy stays on the book that was sent, and you cannot switch it.`
+                        : "Load the unlock file you were sent. Until you do, no strategy fires."}
+                    </p>
+                    <label className="mt-3 block text-xs text-muted">
+                      File
+                      <input
+                        className="desk-input mt-1"
+                        type="file"
+                        accept="application/json,.json"
+                        data-testid="load-unlock"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (!file) return;
+                          void file.text().then((text) => {
+                            try {
+                              const next = acceptUnlock(JSON.parse(text));
+                              if (!next) {
+                                setUnlockError("That file is not an unlock file.");
+                                return;
+                              }
+                              loadUnlock(next);
+                            } catch {
+                              setUnlockError("That file is not an unlock file.");
+                            }
+                          });
+                        }}
+                      />
+                    </label>
+                    {unlock && (
+                      <button
+                        type="button"
+                        className="desk-chip mt-3"
+                        onClick={() => {
+                          setUnlock(null);
+                          setUnlockError("");
+                        }}
+                      >
+                        Remove unlock
+                      </button>
+                    )}
+                    {unlockError && <p className="mt-2 text-sm text-sell">{unlockError}</p>}
+                  </>
+                )}
+              </article>
               <article className="rounded-lg border border-line p-3" data-testid="saved-books">
                 <h3 className="text-sm font-medium">Saved books</h3>
                 <p className="mt-2 text-sm text-muted text-pretty">
@@ -1286,15 +1437,7 @@ export function DeskApp() {
                 </div>
               </article>
 
-              <article className="rounded-lg border border-line p-3">
-                <h3 className="text-sm font-medium">Master matrix</h3>
-                <p className="mt-2 text-sm text-muted text-pretty">
-                  Use this when one AND group is not enough. A buy of A and B, or A and C, or B and D, is three buy rows. Drop hold stays off the table. It can still block a sale.
-                </p>
-                <MatrixEditor side="buy" params={params} onChange={(buy) => setParams((current) => ({ ...current, matrix: { ...current.matrix, buy } }))} />
-                <MatrixEditor side="sell" params={params} onChange={(sell) => setParams((current) => ({ ...current, matrix: { ...current.matrix, sell } }))} />
-              </article>
-
+{hold([], (
               <article className="rounded-lg border border-line p-3">
                 <h3 className="text-sm font-medium">Bollinger bands</h3>
                 <p className="mt-2 text-sm text-muted text-pretty">
@@ -1305,7 +1448,9 @@ export function DeskApp() {
                   <NumField label="Width" value={params.bands.mult} step={0.1} onChange={(mult) => setParams((p) => ({ ...p, bands: { ...p.bands, mult } }))} />
                 </div>
               </article>
+))}
 
+{hold(["lower"], (
               <RuleCard
                 title="Lower band"
                 blurb="Buy within 2% when the buy percent is 102. The close passes at or under that percent of the lower band. The sell percent is its own number."
@@ -1315,7 +1460,9 @@ export function DeskApp() {
                 <NumField label="Buy percent" value={params.lower.buyPct} step={0.1} onChange={(buyPct) => setParams((p) => ({ ...p, lower: { ...p.lower, buyPct } }))} />
                 <NumField label="Sell percent" value={params.lower.sellPct} step={0.1} onChange={(sellPct) => setParams((p) => ({ ...p, lower: { ...p.lower, sellPct } }))} />
               </RuleCard>
+))}
 
+{hold(["upper"], (
               <RuleCard
                 title="Upper band"
                 blurb="Sell within 2% when the sell percent is 98. The close passes at or over that percent of the upper band. The buy percent is its own number."
@@ -1325,7 +1472,9 @@ export function DeskApp() {
                 <NumField label="Buy percent" value={params.upper.buyPct} step={0.1} onChange={(buyPct) => setParams((p) => ({ ...p, upper: { ...p.upper, buyPct } }))} />
                 <NumField label="Sell percent" value={params.upper.sellPct} step={0.1} onChange={(sellPct) => setParams((p) => ({ ...p, upper: { ...p.upper, sellPct } }))} />
               </RuleCard>
+))}
 
+{hold(["slope"], (
               <RuleCard
                 title="Band slope"
                 blurb="Uses the middle band. Buy when the slope is at least the buy floor. Sell when the slope is at or under the sell floor. The two floors are not mirrors of each other."
@@ -1336,7 +1485,9 @@ export function DeskApp() {
                 <NumField label="Sell floor %" value={params.slope.sellFloor} step={0.05} onChange={(sellFloor) => setParams((p) => ({ ...p, slope: { ...p.slope, sellFloor } }))} />
                 <NumField label="Slope bars" value={params.slope.bars} onChange={(bars) => setParams((p) => ({ ...p, slope: { ...p.slope, bars } }))} />
               </RuleCard>
+))}
 
+{hold(["volume"], (
               <RuleCard
                 title="Volume"
                 blurb="Buy when volume is at least the buy multiple of its average. Sell uses its own multiple. Length is the shared average."
@@ -1347,7 +1498,9 @@ export function DeskApp() {
                 <NumField label="Sell multiple" value={params.volume.sellMult} step={0.1} onChange={(sellMult) => setParams((p) => ({ ...p, volume: { ...p.volume, sellMult } }))} />
                 <NumField label="Average length" value={params.volume.length} onChange={(length) => setParams((p) => ({ ...p, volume: { ...p.volume, length } }))} />
               </RuleCard>
+))}
 
+{hold(["rsi"], (
               <RuleCard
                 title="RSI"
                 blurb="Buy only when RSI is at or under the buy level. Sell when it is at or over the sell level."
@@ -1358,7 +1511,9 @@ export function DeskApp() {
                 <NumField label="Buy at or under" value={params.rsi.buyLevel} onChange={(buyLevel) => setParams((p) => ({ ...p, rsi: { ...p.rsi, buyLevel } }))} />
                 <NumField label="Sell at or over" value={params.rsi.sellLevel} onChange={(sellLevel) => setParams((p) => ({ ...p, rsi: { ...p.rsi, sellLevel } }))} />
               </RuleCard>
+))}
 
+{hold(["mfi"], (
               <RuleCard
                 title="Money flow"
                 blurb="Buy only when the Money Flow Index is at or under the buy level. Sell when it is at or over the sell level."
@@ -1369,7 +1524,9 @@ export function DeskApp() {
                 <NumField label="Buy at or under" value={params.mfi.buyLevel} onChange={(buyLevel) => setParams((p) => ({ ...p, mfi: { ...p.mfi, buyLevel } }))} />
                 <NumField label="Sell at or over" value={params.mfi.sellLevel} onChange={(sellLevel) => setParams((p) => ({ ...p, mfi: { ...p.mfi, sellLevel } }))} />
               </RuleCard>
+))}
 
+{hold([], (
               <article className="rounded-lg border border-line p-3">
                 <h3 className="text-sm font-medium">Relative trend</h3>
                 <p className="mt-2 text-sm text-muted text-pretty">
@@ -1380,7 +1537,12 @@ export function DeskApp() {
                   <NumField label="Band width" value={params.rti.mult} step={0.1} onChange={(mult) => setParams((p) => ({ ...p, rti: { ...p.rti, mult } }))} />
                   <NumField label="Smooth" value={params.rti.smooth} onChange={(smooth) => setParams((p) => ({ ...p, rti: { ...p.rti, smooth } }))} />
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
+              </article>
+))}
+
+{hold(["rtiDir"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Direction</h4>
                     <div className="flex shrink-0 flex-col gap-2">
@@ -1408,7 +1570,12 @@ export function DeskApp() {
                     <NumField label="Down line" value={params.rti.direction.down} onChange={(down) => setParams((p) => ({ ...p, rti: { ...p.rti, direction: { ...p.rti.direction, down } } }))} />
                   </div>
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
+              </article>
+))}
+
+{hold(["rtiStr"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Strength</h4>
                     <div className="flex shrink-0 flex-col gap-2">
@@ -1446,7 +1613,101 @@ export function DeskApp() {
                     />
                   </div>
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
+              </article>
+))}
+
+{hold(["rtiLine"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h4 className="text-sm font-medium">Its own line</h4>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <SideSwitch
+                        side="buy"
+                        checked={params.rti.line.buyOn}
+                        join={asJoin(params.rti.line.buyJoin)}
+                        label="RTI line buy"
+                        onChange={(buyOn) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, buyOn } } }))}
+                        onJoin={(buyJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, buyJoin } } }))}
+                      />
+                      <SideSwitch
+                        side="sell"
+                        checked={params.rti.line.sellOn}
+                        join={asJoin(params.rti.line.sellJoin)}
+                        label="RTI line sell"
+                        onChange={(sellOn) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, sellOn } } }))}
+                        onJoin={(sellJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, sellJoin } } }))}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-muted text-pretty">
+                    A buy or a sell passes when any checked test passes. Versus the line compares the reading with its average. Trend buys while that line is rising and sells while it is falling. Level buys at or above its value and sells at or under its own value. The vote stays true while the test remains true. This is the RTI line, not the 4-hour price trend.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <NumField
+                      label="Line length"
+                      value={params.rti.line.length}
+                      onChange={(length) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, length } } }))}
+                    />
+                    <label className="col-span-2 flex min-h-11 items-center gap-3 text-sm">
+                      <Checkbox.Root
+                        checked={params.rti.line.versus !== false}
+                        onCheckedChange={(value) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, versus: value === true } } }))}
+                        className="flex size-6 items-center justify-center rounded-sm border border-line bg-ink text-ink outline-none focus-visible:ring-2 focus-visible:ring-bronze data-[state=checked]:border-bronze data-[state=checked]:bg-bronze"
+                        aria-label="Compare the reading with its line"
+                      >
+                        <Checkbox.Indicator>
+                          <Check className="size-4" strokeWidth={2.5} />
+                        </Checkbox.Indicator>
+                      </Checkbox.Root>
+                      Versus the line
+                    </label>
+                    <label className="col-span-2 flex min-h-11 items-center gap-3 text-sm">
+                      <Checkbox.Root
+                        checked={params.rti.line.trend === true}
+                        onCheckedChange={(value) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, trend: value === true } } }))}
+                        className="flex size-6 items-center justify-center rounded-sm border border-line bg-ink text-ink outline-none focus-visible:ring-2 focus-visible:ring-bronze data-[state=checked]:border-bronze data-[state=checked]:bg-bronze"
+                        aria-label="Use the line trend"
+                      >
+                        <Checkbox.Indicator>
+                          <Check className="size-4" strokeWidth={2.5} />
+                        </Checkbox.Indicator>
+                      </Checkbox.Root>
+                      Trend is positive on a buy, negative on a sell
+                    </label>
+                    <label className="col-span-2 flex min-h-11 items-center gap-3 text-sm">
+                      <Checkbox.Root
+                        checked={params.rti.line.levelOn === true}
+                        onCheckedChange={(value) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, levelOn: value === true } } }))}
+                        className="flex size-6 items-center justify-center rounded-sm border border-line bg-ink text-ink outline-none focus-visible:ring-2 focus-visible:ring-bronze data-[state=checked]:border-bronze data-[state=checked]:bg-bronze"
+                        aria-label="Use a level"
+                      >
+                        <Checkbox.Indicator>
+                          <Check className="size-4" strokeWidth={2.5} />
+                        </Checkbox.Indicator>
+                      </Checkbox.Root>
+                      Above or below a value
+                    </label>
+                    <NumField
+                      label="Buy at or above"
+                      value={params.rti.line.buyLevel}
+                      step={0.1}
+                      onChange={(buyLevel) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, buyLevel } } }))}
+                    />
+                    <NumField
+                      label="Sell at or under"
+                      value={params.rti.line.sellLevel}
+                      step={0.1}
+                      onChange={(sellLevel) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, sellLevel } } }))}
+                    />
+                  </div>
+                </div>
+              </article>
+))}
+
+{hold(["rtiNeg"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Negative</h4>
                     <div className="flex shrink-0 flex-col gap-2">
@@ -1472,7 +1733,12 @@ export function DeskApp() {
                     Passes while the reading is below zero. Zero is the lower edge of the band, so this is a close through that edge. It stays true on every negative bar, not only the bar it crosses. A reading of exactly zero does not pass.
                   </p>
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
+              </article>
+))}
+
+{hold(["rtiRev"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Reversal</h4>
                     <div className="flex shrink-0 flex-col gap-2">
@@ -1505,7 +1771,12 @@ export function DeskApp() {
                     />
                   </div>
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
+              </article>
+))}
+
+{hold(["rtiBelow"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <h4 className="text-sm font-medium">Buy below</h4>
                     <SideSwitch
@@ -1529,54 +1800,26 @@ export function DeskApp() {
                     />
                   </div>
                 </div>
-                <div className="mt-4 border-t border-line pt-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <h4 className="text-sm font-medium">Its own line</h4>
-                    <div className="flex shrink-0 flex-col gap-2">
-                      <SideSwitch
-                        side="buy"
-                        checked={params.rti.line.buyOn}
-                        join={asJoin(params.rti.line.buyJoin)}
-                        label="RTI line buy"
-                        onChange={(buyOn) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, buyOn } } }))}
-                        onJoin={(buyJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, buyJoin } } }))}
-                      />
-                      <SideSwitch
-                        side="sell"
-                        checked={params.rti.line.sellOn}
-                        join={asJoin(params.rti.line.sellJoin)}
-                        label="RTI line sell"
-                        onChange={(sellOn) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, sellOn } } }))}
-                        onJoin={(sellJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, sellJoin } } }))}
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-muted text-pretty">
-                    Buy while the reading is above this line. Sell while it is under the line. Either vote stays true for every bar the reading remains on that side, not only the bar it crosses. This is the RTI line, not the 4-hour price trend. That line is in dollars, and this reading is not.
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <NumField
-                      label="Line length"
-                      value={params.rti.line.length}
-                      onChange={(length) => setParams((p) => ({ ...p, rti: { ...p.rti, line: { ...p.rti.line, length } } }))}
-                    />
-                  </div>
-                </div>
               </article>
+))}
 
+{hold(["vwap"], (
               <RuleCard
                 title="VWAP in the candle"
                 blurb="Passes when the candle's low-to-high range contains the session VWAP. That is the whole test."
                 rule={params.vwap}
                 onRule={(patch) => setParams((p) => ({ ...p, vwap: { ...p.vwap, ...patch } }))}
               />
+))}
 
+{hold(["vwapPx"], (
               <RuleCard
                 title="Close versus VWAP"
                 blurb="Buy when the close is at or under session VWAP. Sell when the close is at or over it."
                 rule={params.vwapPx}
                 onRule={(patch) => setParams((p) => ({ ...p, vwapPx: { ...p.vwapPx, ...patch } }))}
               />
+))}
 
               {(["ema20", "ema50", "ema100"] as const).map((id) => {
                 const node = params[id];
@@ -1588,6 +1831,7 @@ export function DeskApp() {
                       ? `This tape has ${hoursOnTape} hours, so this average is not ready and it blocks every fill.`
                       : undefined;
                 return (
+                  hold([id], (
                   <RuleCard
                     key={id}
                     title={strategyName(id, params)}
@@ -1598,19 +1842,25 @@ export function DeskApp() {
                   >
                     <NumField label="Hours" value={node.hours} onChange={(hours) => setParams((p) => ({ ...p, [id]: { ...p[id], hours } }))} />
                   </RuleCard>
+                  ))
                 );
               })}
 
+{hold([], (
               <article className="rounded-lg border border-line p-3">
                 <h3 className="text-sm font-medium">EMA relations</h3>
                 <p className="mt-2 text-sm text-muted text-pretty">
                   The three hourly averages are one family. A relation is a test you build from them, not a menu of every stack. Rank checks order. Touch checks whether 1, 2, or 3 lines coincide. Gap checks the distance between them. Each relation is its own voter. Mark it AND or OR the same way as the other cards.
                 </p>
               </article>
-              {EMA_RELS.map((id) => (
+))}
+              {EMA_RELS.map((id) =>
+                hold([id], (
                 <RelationCard key={id} id={id} slot={params[id]} params={params} onChange={(slot) => setParams((current) => ({ ...current, [id]: slot }))} />
-              ))}
+                ))
+              )}
 
+{hold([], (
               <article className="rounded-lg border border-line p-3">
                 <h3 className="text-sm font-medium">Trend line</h3>
                 <p className="mt-2 text-sm text-muted text-pretty">
@@ -1620,7 +1870,9 @@ export function DeskApp() {
                   <NumField label="Hours" value={params.trend.hours} step={0.5} onChange={(hours) => setParams((p) => ({ ...p, trend: { ...p.trend, hours } }))} />
                 </div>
               </article>
+))}
 
+{hold(["trendSlope"], (
               <RuleCard
                 title={strategyName("trendSlope", params)}
                 blurb="Buy when the fitted line is rising at least the buy floor. Sell when the slope is at or under the sell floor."
@@ -1640,14 +1892,18 @@ export function DeskApp() {
                   onChange={(sellFloor) => setParams((p) => ({ ...p, trend: { ...p.trend, slope: { ...p.trend.slope, sellFloor } } }))}
                 />
               </RuleCard>
+))}
 
+{hold(["trendLine"], (
               <RuleCard
                 title={strategyName("trendLine", params)}
                 blurb="Buy when the close is on or above the fitted line. Sell when the close is on or under it."
                 rule={params.trend.line}
                 onRule={(patch) => setParams((p) => ({ ...p, trend: { ...p.trend, line: { ...p.trend.line, ...patch } } }))}
               />
+))}
 
+{hold(["step"], (
               <RuleCard
                 title="Last fill"
                 blurb="Sell when the close is at least this many dollars above the last play-money buy. Buy when the close is at least this many dollars below the last play-money sell. Turn on the flat buy to enter whenever this book is flat, and the stop to sell a close under the last buy. Until the book has sold once, the dollar buy stays out so the first entry can come from the flat buy or the other buy tests. If this side is AND, a failed step blocks that side unless an OR rule passes. If it is OR, a passing step can fire on its own."
@@ -1689,7 +1945,9 @@ export function DeskApp() {
                   onChange={(stopBy) => setParams((p) => ({ ...p, step: { ...p.step, stopBy } }))}
                 />
               </RuleCard>
+))}
 
+{hold(["drop"], (
               <article className="rounded-lg border border-line p-3">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-sm font-medium">Drop hold</h3>
@@ -1703,6 +1961,28 @@ export function DeskApp() {
                   <NumField label="Recover back %" value={params.drop.recoverPct} step={1} onChange={(recoverPct) => setParams((p) => ({ ...p, drop: { ...p.drop, recoverPct } }))} />
                 </div>
               </article>
+))}
+
+{hold(["matrix"], (
+              <article className="rounded-lg border border-line p-3">
+                <h3 className="text-sm font-medium">Master matrix</h3>
+                <p className="mt-2 text-sm text-muted text-pretty">
+                  Use this when one AND group is not enough. A buy of A and B, or A and C, or B and D, is three buy rows. Drop hold stays off the table. It can still block a sale.
+                </p>
+                <MatrixEditor side="buy" params={params} onChange={(buy) => setParams((current) => ({ ...current, matrix: { ...current.matrix, buy } }))} />
+                <MatrixEditor side="sell" params={params} onChange={(sell) => setParams((current) => ({ ...current, matrix: { ...current.matrix, sell } }))} />
+              </article>
+))}
+              {openCards}
+              {lockedCards.length > 0 && (
+                <details className="rounded-lg border border-line" data-testid="locked-strategies">
+                  <summary className="cursor-pointer px-3 py-3 text-sm font-medium">
+                    Locked · {lockedCards.length}
+                    {EDITION === "desk" && !unlock ? " · not running" : ""}
+                  </summary>
+                  <div className="flex flex-col gap-4 px-3 pb-3">{lockedCards}</div>
+                </details>
+              )}
             </div>
           </section>
 
@@ -1827,7 +2107,7 @@ export function DeskApp() {
             bars={tape.bars}
             ind={result.indicators}
             fills={book === "play" ? result.fills : LIVE_FILLS}
-            params={runParams}
+            params={liveParams}
             holdOn={result.holdOn}
             recover={result.recover}
             buyAt={result.buyAt}

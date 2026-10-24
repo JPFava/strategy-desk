@@ -1,41 +1,61 @@
 # Strategy Desk
 
-**Version 1.4.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
+**Version 1.5.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
 Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. It does not send orders. The Live switch stays off.
+
+A tester's copy fires no strategy until an unlock file is loaded. That file is sent separately. It is not in the public project. The keys for a brokerage stay on the computer that typed them.
 
 Times on the chart, the blotter, and the session rules are America/New_York.
 
 ## 1. Install and open
 
-### Use it in the browser
+You need Node.js 22 or newer. The installer downloads it when it can.
 
-No install is required. Open the desk, type a symbol, choose a bar size, and press **Load**. The starter book is already filled in: SOXL, 5-minute bars, the baseline switches below. The first calculation runs on load.
+### Mac
 
-Your symbol, bar size, switches, and account numbers are saved in this browser. They come back the next time you open the desk on the same browser. A new baseline version ignores the old save and restores the starter book.
-
-### Run the project yourself
-
-You need Node.js 22 or newer.
-
-Windows: unzip the archive and double-click `install-desk.bat`.
-
-Mac: do not double-click a script, and do not run it from Downloads. macOS blocks both. Open **Terminal**, paste the command below, and press Return. Replace `PASSWORD` with the archive password you were sent. The password stays visible in the command. If a key icon is showing, press Control-C first. That icon hides typing and will not accept a paste.
+Do not double-click a script, and do not run it from Downloads. macOS blocks both. Open **Terminal**, paste this, and press Return.
 
 ```bash
-cd "$HOME" && curl -fsSL -o strategy-desk.zip "https://github.com/JPFava/strategy-desk/raw/main/public/strategy-desk.zip" && unzip -P 'PASSWORD' strategy-desk.zip && cd strategy-desk && bash install-desk.sh
+cd "$HOME" && curl -fsSL -o strategy-desk.zip "https://github.com/JPFava/strategy-desk/archive/refs/heads/main.zip" && unzip -o strategy-desk.zip && cd strategy-desk-main && bash install-desk.sh
 ```
 
-The command downloads the desk into the home folder, where Terminal is allowed to run it. It installs Node.js 22 or newer when that is missing, installs the desk packages, starts the desk, and opens `http://127.0.0.1:8080`.
+That downloads the desk into your home folder, where Terminal is allowed to run it. It installs Node.js 22 or newer if needed, then opens the desk at `http://127.0.0.1:8080`. Leave the Terminal window open.
 
-Or run it yourself:
+### Windows
 
-```bash
-npm install
-npm run dev
-```
+1. Download the project zip from https://github.com/JPFava/strategy-desk/archive/refs/heads/main.zip
+2. Unzip it. Open the folder named `strategy-desk-main`.
+3. Double-click `install-desk.bat`.
 
-The desk is served at `http://127.0.0.1:8080`. A production check is `npm run build`.
+If Windows asks to approve Node.js, approve it, then double-click `install-desk.bat` again. The desk opens at `http://127.0.0.1:8080`. Leave that window open. Closing it stops the desk.
+
+### Alpaca paper keys
+
+The first screen is **Create this desk**. The email and password are for this computer only. They are not the Alpaca login.
+
+1. Open a brokerage account at https://alpaca.markets. Paper trading does not wait for the live account to be approved.
+2. In the Alpaca dashboard, stay on the paper account. Open its API keys and generate a key. Copy the key and the secret. The secret is shown once. If you lose it, generate a new pair.
+3. On the desk, choose **Alpaca**. Leave **Paper account** checked.
+4. Paste the paper key into **API key** and the paper secret into **API secret**.
+5. Press **Create this desk**.
+
+A paper key cannot place a live order. Do not paste the key into email, and do not put it in an unlock file or a saved book. Those files do not contain it.
+
+### The unlock file
+
+After you are signed in, open **Strategies** and load the unlock file you were sent. Until that file is loaded, no strategy fires. The file sets the book. You can change only the strategies it names. The rest stay locked.
+
+### When you want live keys
+
+This version still does not send an order. Changing the keys only stores a different pair on this computer. Do it when the live account is approved and you mean that pair to be the one a later version would use.
+
+1. In the Alpaca dashboard, switch to the live account and generate a live key. It is not the paper key.
+2. On the desk, press **Change brokerage**.
+3. Choose **Alpaca**. Uncheck **Paper account**.
+4. Paste the live key and the live secret. Press **Save brokerage**.
+
+The paper pair is replaced. To go back, paste the paper pair, check **Paper account**, and save again. The Live switch on the book stays off either way.
 
 Market bars are requested from Yahoo Finance for the regular session only (no pre-market, no after-hours). If that request fails, the desk loads a sample tape and says so. Sample numbers are not the market.
 
@@ -251,7 +271,15 @@ Over that many readings, the low or the high has to sit inside the window. It ca
 
 **Buy below.** Buy when the reading is at or under a level. The level starts at **1**, and the buy starts off. The level may be negative. A level of 0 passes on zero and on every negative reading. A level of 1 also passes a reading that is only at the lower edge of the band. A reading of exactly 1 passes. There is no sell on this test. Raise the level if you want a milder dip. Use **Negative** when zero itself should fail.
 
-**Its own line.** A slower exponential average of the same reading. Starter length **10**, and both sides start off. The buy passes while the reading is above that line. The sell passes while the reading is under it. Equal does not pass either side. The vote stays true for every bar the reading remains on that side of the line, not only the bar it crosses. This line is not the 4-hour price trend line. That line is in dollars. This reading is not, so the two are never compared.
+**Its own line.** A slower exponential average of the same reading. Starter length **10**. Both sides start off. A side passes when any checked test on this card passes.
+
+**Versus the line** starts checked. The buy passes while the reading is above the line. The sell passes while it is under the line. Equal does not pass.
+
+**Trend** starts off. The buy passes while the line is rising. The sell passes while the line is falling. A flat line passes neither side.
+
+**Above or below a value** starts off. The buy passes when the reading is at or above the buy value. The sell passes when it is at or under the sell value. Both values start at **50**.
+
+The vote stays true while a checked test remains true, not only on the bar it first passes. This line is not the 4-hour price trend line. That line is in dollars. This reading is not, so the two are never compared.
 
 The lower chart draws a bronze line at 0. Its scale starts at 0 to 100 and stretches, above or below, when a turned-on reading leaves that range. 0, 50, and 100 stay marked.
 

@@ -291,6 +291,11 @@ function tune(params: DeskParams, account: AccountSettings): Tuned {
         line: {
           ...side(params.rti.line),
           length: Math.round(clampNum(params.rti.line.length, 2, 200, 10)),
+          versus: params.rti.line.versus !== false,
+          trend: params.rti.line.trend === true,
+          levelOn: params.rti.line.levelOn === true,
+          buyLevel: clampNum(params.rti.line.buyLevel, -200, 200, 50),
+          sellLevel: clampNum(params.rti.line.sellLevel, -200, 200, 50),
         },
         negative: side(params.rti.negative),
         reversal: {
@@ -777,12 +782,25 @@ export function rtiFacts(
 } {
   const rti = ind.rti[i];
   const line = ind.rtiLine[i];
+  const prev = i > 0 ? ind.rtiLine[i - 1] : null;
   const ready = num(rti);
   const lined = ready && num(line);
   const buyFloor = params.rti.strength.buyFloor;
   const sellFloor = params.rti.strength.sellFloor;
   const negative = ready && (rti as number) < -1e-9;
   const swing = rtiSwing(ind.rti, i, params.rti.reversal.bars);
+  const setup = params.rti.line;
+  const versus = setup.versus !== false;
+  const trend = setup.trend === true;
+  const levelOn = setup.levelOn === true;
+  const versusBuy = lined && (rti as number) > (line as number) + 1e-9;
+  const versusSell = lined && (rti as number) < (line as number) - 1e-9;
+  const trendBuy = num(line) && num(prev) && (line as number) > (prev as number) + 1e-9;
+  const trendSell = num(line) && num(prev) && (line as number) < (prev as number) - 1e-9;
+  const levelBuy = ready && (rti as number) >= (setup.buyLevel ?? 50) - 1e-9;
+  const levelSell = ready && (rti as number) <= (setup.sellLevel ?? 50) + 1e-9;
+  const buyVotes = [versus && versusBuy, trend && trendBuy, levelOn && levelBuy];
+  const sellVotes = [versus && versusSell, trend && trendSell, levelOn && levelSell];
   return {
     rti,
     line,
@@ -790,8 +808,8 @@ export function rtiFacts(
     dirSell: ready && (rti as number) <= params.rti.direction.down + 1e-9,
     strBuy: ready && (rti as number) >= 50 + buyFloor - 1e-9,
     strSell: ready && (rti as number) <= 50 - sellFloor + 1e-9,
-    lineBuy: lined && (rti as number) > (line as number) + 1e-9,
-    lineSell: lined && (rti as number) < (line as number) - 1e-9,
+    lineBuy: buyVotes.some(Boolean),
+    lineSell: sellVotes.some(Boolean),
     negBuy: negative,
     negSell: negative,
     revBuy: swing.valley,
@@ -1154,9 +1172,15 @@ export function explainStrategies(
       num(rti.rti) ? `${rtiText} Sell needs at least ${px(params.rti.strength.sellFloor)} points below 50.` : rtiText,
     ),
   });
+  const lineSetup = params.rti.line;
+  const lineParts = [
+    lineSetup.versus !== false ? "above its line on a buy and under it on a sell" : "",
+    lineSetup.trend ? "a rising line on a buy and a falling line on a sell" : "",
+    lineSetup.levelOn ? `at or above ${px(lineSetup.buyLevel)} on a buy and at or under ${px(lineSetup.sellLevel)} on a sell` : "",
+  ].filter(Boolean);
   const lineText =
     num(rti.rti) && num(rti.line)
-      ? `Relative trend ${px(rti.rti)} versus its ${params.rti.line.length}-bar line ${px(rti.line)}. Buy stays true while the reading is above that line. Sell stays true while it is under that line.`
+      ? `Relative trend ${px(rti.rti)}, line ${px(rti.line)}. A side passes when any checked test passes: ${lineParts.join("; ") || "none"}.`
       : "The relative-trend line is not ready.";
   reads.push({
     id: "rtiLine",
@@ -1165,8 +1189,8 @@ export function explainStrategies(
     wantSell: rti.lineSell,
     buyOn: params.rti.line.buyOn,
     sellOn: params.rti.line.sellOn,
-    buy: oneCheck("Above its line", rti.lineBuy, lineText),
-    sell: oneCheck("Under its line", rti.lineSell, lineText),
+    buy: oneCheck("Its own line", rti.lineBuy, lineText),
+    sell: oneCheck("Its own line", rti.lineSell, lineText),
   });
   const negText = num(rti.rti)
     ? `Relative trend ${px(rti.rti)}. Below zero means the close is through the lower edge of its band. The test stays true while the reading remains negative.`

@@ -299,6 +299,14 @@ export type RtiStrength = SideRule & {
 
 export type RtiLine = SideRule & {
   length: number;
+  /** Reading above the line buys. Reading under it sells. */
+  versus: boolean;
+  /** A rising line buys. A falling line sells. */
+  trend: boolean;
+  /** Reading at or above the buy level buys. At or under the sell level sells. */
+  levelOn: boolean;
+  buyLevel: number;
+  sellLevel: number;
 };
 
 export type RtiReversal = SideRule & {
@@ -413,7 +421,7 @@ export function defaultParams(): DeskParams {
       smooth: 3,
       direction: { buyOn: false, sellOn: false, up: 50, down: 50 },
       strength: { buyOn: false, sellOn: false, buyFloor: 10, sellFloor: 10 },
-      line: { buyOn: false, sellOn: false, length: 10 },
+      line: { buyOn: false, sellOn: false, length: 10, versus: true, trend: false, levelOn: false, buyLevel: 50, sellLevel: 50 },
       negative: { buyOn: false, sellOn: false },
       reversal: { buyOn: false, sellOn: false, bars: 6 },
       below: { buyOn: false, sellOn: false, level: 1 },

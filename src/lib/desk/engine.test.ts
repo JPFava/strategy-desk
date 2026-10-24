@@ -796,6 +796,31 @@ test("relative trend sells while it is under its own slower line", () => {
   assert.ok((down.rti ?? 100) < (down.line ?? 0));
 });
 
+test("relative trend line buys on a rising line or a level, and sells on a falling line or a level", () => {
+  const t0 = atEastern(2026, 3, 2, 10, 0);
+  const wave = Array.from({ length: 40 }, (_, i) => bar(t0 + i * 300_000, 100 + Math.sin(i / 3) * 8));
+  const params = quiet(defaultParams());
+  params.rti.length = 8;
+  params.rti.smooth = 1;
+  params.rti.line = { ...params.rti.line, buyOn: true, sellOn: true, versus: false, trend: true, levelOn: false, length: 4 };
+  const ind = computeIndicators(wave, params);
+  const rising = rtiFacts(14, ind, params);
+  const falling = rtiFacts(24, ind, params);
+  assert.equal(rising.lineBuy, true);
+  assert.equal(rising.lineSell, false);
+  assert.equal(falling.lineSell, true);
+  assert.equal(falling.lineBuy, false);
+  params.rti.line = { ...params.rti.line, trend: false, levelOn: true, buyLevel: 60, sellLevel: 40 };
+  const high = rtiFacts(18, ind, params);
+  const low = rtiFacts(9, ind, params);
+  assert.ok((high.rti ?? 0) >= 60);
+  assert.equal(high.lineBuy, true);
+  assert.equal(high.lineSell, false);
+  assert.ok((low.rti ?? 100) <= 40);
+  assert.equal(low.lineSell, true);
+  assert.equal(low.lineBuy, false);
+});
+
 test("relative trend buys at or under its buy-below level", () => {
   const t0 = atEastern(2026, 3, 2, 10, 0);
   const rising = Array.from({ length: 40 }, (_, i) => bar(t0 + i * 300_000, 100 + i));

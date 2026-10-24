@@ -11,3 +11,5 @@ screenshots
 .env.*
 *.log
 .DS_Store
+.desk
+
