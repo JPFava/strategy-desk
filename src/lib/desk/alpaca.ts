@@ -1,4 +1,4 @@
-/** Alpaca order planning. No network, no keys. */
+/** Alpaca order planning and account reads. No network, no keys. */
 
 export const LIVE_KIND = "strategy-desk-live";
 export const ALPACA_PAPER = "https://paper-api.alpaca.markets";
@@ -126,4 +126,110 @@ export function isWorking(status: string): boolean {
 export function asNumber(value: unknown): number {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(n) ? n : 0;
+}
+
+export type AccountFill = {
+  id: string;
+  time: number;
+  side: AlpacaSide;
+  qty: number;
+  price: number;
+  symbol: string;
+};
+
+export type EquityPoint = { time: number; equity: number };
+
+const DAY = 86_400_000;
+
+export function historyPath(startMs: number, endMs: number): string {
+  const span = Math.max(0, endMs - startMs);
+  const timeframe = span <= 7 * DAY ? "5Min" : span <= 30 * DAY ? "15Min" : "1D";
+  const start = new Date(startMs).toISOString();
+  const end = new Date(Math.max(startMs, endMs)).toISOString();
+  return `/v2/account/portfolio/history?timeframe=${timeframe}&date_start=${encodeURIComponent(start)}&date_end=${encodeURIComponent(end)}&intraday_reporting=market_hours`;
+}
+
+export function readHistory(body: unknown): EquityPoint[] {
+  if (!body || typeof body !== "object") return [];
+  const raw = body as { timestamp?: unknown; equity?: unknown };
+  if (!Array.isArray(raw.timestamp) || !Array.isArray(raw.equity)) return [];
+  const out: EquityPoint[] = [];
+  for (let i = 0; i < raw.timestamp.length; i++) {
+    const time = asNumber(raw.timestamp[i]) * 1000;
+    const equity = asNumber(raw.equity[i]);
+    if (time > 0 && equity > 0) out.push({ time, equity });
+  }
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+export function readFills(body: unknown, symbol: string): AccountFill[] {
+  if (!Array.isArray(body)) return [];
+  const want = symbol.toUpperCase();
+  const out: AccountFill[] = [];
+  for (const row of body) {
+    if (!row || typeof row !== "object") continue;
+    const raw = row as Record<string, unknown>;
+    const sym = String(raw.symbol ?? "").toUpperCase();
+    if (want && sym !== want) continue;
+    const side = raw.side === "buy" || raw.side === "sell" ? raw.side : null;
+    if (!side) continue;
+    const time = Date.parse(String(raw.transaction_time ?? ""));
+    const price = asNumber(raw.price);
+    const qty = asNumber(raw.qty);
+    if (!Number.isFinite(time) || !(price > 0) || !(qty > 0)) continue;
+    out.push({ id: String(raw.id ?? `${time}-${side}-${qty}`), time, side, qty, price, symbol: sym });
+  }
+  out.sort((a, b) => a.time - b.time);
+  return out;
+}
+
+export function equityOnBars(times: readonly number[], points: readonly EquityPoint[]): number[] {
+  if (points.length === 0) return times.map(() => 0);
+  const sorted = [...points].sort((a, b) => a.time - b.time);
+  let cursor = 0;
+  let last = sorted[0].equity;
+  return times.map((time) => {
+    while (cursor < sorted.length && sorted[cursor].time <= time) {
+      last = sorted[cursor].equity;
+      cursor += 1;
+    }
+    return last;
+  });
+}
+
+export function seriesReturnPct(series: readonly number[]): number {
+  const values = series.filter((value) => value > 0);
+  if (values.length < 2) return 0;
+  return ((values[values.length - 1] - values[0]) / values[0]) * 100;
+}
+
+export function drawdownPct(series: readonly number[]): number {
+  let peak = 0;
+  let worst = 0;
+  for (const value of series) {
+    if (!(value > 0)) continue;
+    peak = Math.max(peak, value);
+    if (peak > 0) worst = Math.max(worst, ((peak - value) / peak) * 100);
+  }
+  return worst;
+}
+
+export function roundTrips(fills: readonly { side: AlpacaSide }[]): number {
+  let buys = 0;
+  let sells = 0;
+  for (const fill of fills) {
+    if (fill.side === "buy") buys += 1;
+    else sells += 1;
+  }
+  return Math.min(buys, sells);
+}
+
+export function barIndexAt(times: readonly number[], time: number): number {
+  let index = -1;
+  for (let i = 0; i < times.length; i++) {
+    if (times[i] <= time) index = i;
+    else break;
+  }
+  return index;
 }

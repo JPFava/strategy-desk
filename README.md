@@ -1,6 +1,6 @@
 # Strategy Desk
 
-Version 1.6.0. One desk. Play money stays on the computer. Alpaca paper orders are sent from the Alpaca panel. Live orders need a separate live key and are real money.
+Version 1.6.1. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. Paper keys show the paper account. Live keys show the live account. Play money stays on its own tab.
 
 This is the tester copy. It fires no strategy until you load the unlock file you were sent. That file is not in this repository. Brokerage keys stay on your computer.
 

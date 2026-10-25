@@ -1,6 +1,6 @@
 # Opening a brokerage account for this desk
 
-Strategy Desk 1.6.0. This page is the signup on your own computer. It does not open a brokerage account. Paper orders are sent only when you press send on the Alpaca panel. Live orders also need the live key file.
+Strategy Desk 1.6.1. This page is the signup on your own computer. It does not open a brokerage account. Paper orders are sent only when you press send on the Alpaca panel. Live orders also need the live key file.
 
 You open the account at the firm. You create that firm's keys there. You paste only the keys this desk asks for. The firm's own password stays at the firm. The desk password only unlocks this copy.
 

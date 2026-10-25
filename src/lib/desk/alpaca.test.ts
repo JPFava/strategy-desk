@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clientOrderId, issueLiveArm, planOrder, readLiveArm, LIVE_KIND } from "./alpaca.ts";
+import { barIndexAt, clientOrderId, drawdownPct, equityOnBars, issueLiveArm, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
 
 const base = {
   paper: true,
@@ -49,4 +49,20 @@ test("an unlock file is not a live key", () => {
   const file = issueLiveArm(" Ada ", "2026-10-25");
   assert.equal(file.kind, LIVE_KIND);
   assert.equal(readLiveArm(file)?.tester, "Ada");
+});
+
+test("account history and fills land on the bars of this tape", () => {
+  const points = readHistory({ timestamp: [100, 200], equity: [1000, 1100] });
+  assert.deepEqual(equityOnBars([90_000, 150_000, 250_000], points), [1000, 1000, 1100]);
+  const fills = readFills(
+    [
+      { id: "a", symbol: "SOXL", side: "buy", qty: "2", price: "40", transaction_time: "2026-10-01T14:00:00.000Z" },
+      { symbol: "AAPL", side: "buy", qty: "1", price: "1", transaction_time: "2026-10-01T14:00:00.000Z" },
+    ],
+    "SOXL",
+  );
+  assert.equal(fills.length, 1);
+  assert.equal(barIndexAt([Date.parse("2026-10-01T13:55:00.000Z"), Date.parse("2026-10-01T14:00:00.000Z")], fills[0].time), 1);
+  assert.equal(roundTrips([{ side: "buy" }, { side: "sell" }, { side: "buy" }]), 1);
+  assert.equal(drawdownPct([100, 80, 90]), 20);
 });

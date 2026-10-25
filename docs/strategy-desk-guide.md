@@ -1,6 +1,6 @@
 # Strategy Desk
 
-**Version 1.6.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
+**Version 1.6.1.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
 Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can also send that latest signal as a market order. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off.
 
@@ -67,6 +67,8 @@ There is one desk. Paper and live are not two programs.
 3. Press **Send this signal** once. A buy spends up to the dollars-per-buy figure, and not more than Alpaca cash. A sell closes the Alpaca position. The desk holds one position and does not sell short.
 4. The order row shows Alpaca's status. A fill price is Alpaca's price, not the bar close.
 5. **Send each new bar** waits for a newer bar. Leave the window open. It does not replay old bars.
+
+The chart marks, the blotter, and the equity curve follow whichever Alpaca account is connected. A paper key shows the paper account. A live key shows the live account. Play money stays on its own tab.
 
 If the market is closed, Alpaca can accept the order and fill it at the next open. The row stays on the panel until then.
 

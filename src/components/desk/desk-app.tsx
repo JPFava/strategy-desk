@@ -6,6 +6,8 @@ import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
 import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
+import { barIndexAt, drawdownPct, equityOnBars, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import type { AlpacaLook } from "@/lib/desk/alpaca-api";
 import {
   DELAYS,
   EMA_RELS,
@@ -95,7 +97,6 @@ function readBooks(): SavedBook[] {
 }
 const BASELINE_ID = "soxl-5m-band-v2";
 const bootId = `${BASELINE_ID}:${Math.random()}`;
-const LIVE_FILLS: Fill[] = [];
 
 function sampleSeries(values: number[], max = 480): number[] {
   if (values.length <= max) return values;
@@ -918,6 +919,8 @@ export function DeskApp() {
   const [tape, setTape] = useState<Tape | null>(null);
   const [loading, setLoading] = useState(true);
   const [book, setBook] = useState<"play" | "live">("play");
+  const [accountView, setAccountView] = useState<AlpacaLook | null>(null);
+  const accountKind = accountView ? (accountView.paper ? "paper" : "live-host") : "off";
   const [windowId, setWindowId] = useState<WindowId | null>("5D");
   const [view, setView] = useState({ start: 0, end: 0 });
   const [selected, setSelected] = useState<number | null>(null);
@@ -929,6 +932,10 @@ export function DeskApp() {
   const [testerName, setTesterName] = useState("");
   const [allow, setAllow] = useState<AllowId[]>([]);
   const [unlockError, setUnlockError] = useState("");
+
+  useEffect(() => {
+    if (accountKind !== "off") setBook("live");
+  }, [accountKind]);
 
   useEffect(() => {
     const applyBaseline = () => {
@@ -1064,9 +1071,40 @@ export function DeskApp() {
 
   const playStats: Stats | null = result?.stats ?? null;
   const last = result && result.rangeEnd > result.rangeStart ? result.trace[result.rangeEnd - 1] : null;
-  const shownFills = book === "play" ? (result?.fills ?? []) : LIVE_FILLS;
+  const accountName = accountView?.paper === false ? "Live account" : "Paper account";
+  const showingAccount = book === "live" && accountView != null;
+  const accountFills = useMemo(() => {
+    if (!tape || !accountView) return [] as (Fill & { id: string })[];
+    const times = tape.bars.map((bar) => bar.t);
+    const equity = equityOnBars(times, accountView.history);
+    return accountView.fills.flatMap((fill) => {
+      const index = barIndexAt(times, fill.time);
+      if (index < 0) return [];
+      const row: Fill & { id: string } = {
+        id: fill.id,
+        index,
+        time: fill.time,
+        side: fill.side,
+        strategies: [],
+        shares: fill.qty,
+        price: fill.price,
+        close: tape.bars[index].c,
+        fee: 0,
+        equityAfter: equity[index] > 0 ? equity[index] : accountView.equity,
+      };
+      return [row];
+    });
+  }, [tape, accountView]);
+  const accountCurve = useMemo(() => {
+    if (!tape || !result || !accountView) return [] as number[];
+    return equityOnBars(
+      tape.bars.slice(result.rangeStart, result.rangeEnd).map((bar) => bar.t),
+      accountView.history,
+    );
+  }, [tape, result, accountView]);
+  const shownFills = showingAccount ? accountFills : (result?.fills ?? []);
   const explain =
-    book === "play" && result && tape && selected != null && result.trace[selected]
+    result && tape && selected != null && result.trace[selected]
       ? explainAt(selected, tape.bars, result.indicators, liveParams, tape.interval, result.trace[selected])
       : null;
 
@@ -2005,11 +2043,13 @@ export function DeskApp() {
           </section>
 
           <section className="desk-panel p-4">
-            <h2 className="text-sm font-medium">Play-money account</h2>
+            <h2 className="text-sm font-medium">{accountView ? accountName : "Play-money account"}</h2>
             <p className="mt-1 text-sm text-muted text-pretty">
-              {account.useConfirmedSaleProceeds
-                ? "Confirmed sale proceeds are on. A filled sell can fund the next buy immediately. That is still only this account's cash. No margin."
-                : "After a sell, that cash is not buying power until the reconciliation delay passes. Shares leave the position as soon as the sell fills. No margin."}
+              {accountView
+                ? `These figures are the ${accountName.toLowerCase()}. Dollars per buy still sizes the next order sent to Alpaca. Play money stays on its own tab.`
+                : account.useConfirmedSaleProceeds
+                  ? "Confirmed sale proceeds are on. A filled sell can fund the next buy immediately. That is still only this account's cash. No margin."
+                  : "After a sell, that cash is not buying power until the reconciliation delay passes. Shares leave the position as soon as the sell fills. No margin."}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <NumField label="Starting cash" value={account.startingCash} step={100} onChange={(startingCash) => setAccount((a) => ({ ...a, startingCash }))} />
@@ -2088,7 +2128,26 @@ export function DeskApp() {
                 </label>
               </div>
             </div>
-            {last && (
+            {accountView ? (
+              <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 font-mono text-sm tabular-nums">
+                <div>
+                  <dt className="text-xs text-muted">Cash</dt>
+                  <dd>{formatMoney(accountView.cash)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Equity</dt>
+                  <dd>{formatMoney(accountView.equity)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Buying power</dt>
+                  <dd>{formatMoney(accountView.buyingPower)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">{symbol}</dt>
+                  <dd>{accountView.positionQty > 0 ? `Long ${formatQty(accountView.positionQty)}` : accountView.positionQty < 0 ? `Short ${formatQty(Math.abs(accountView.positionQty))}` : "Flat"}</dd>
+                </div>
+              </dl>
+            ) : last && (
               <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 font-mono text-sm tabular-nums">
                 <div>
                   <dt className="text-xs text-muted">Settled</dt>
@@ -2125,6 +2184,9 @@ export function DeskApp() {
           barTime={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.t ?? 0) : 0}
           signal={last?.action ?? "none"}
           sample={tape?.source === "sample"}
+          from={tape?.bars[0]?.t ?? 0}
+          to={tape?.bars[tape.bars.length - 1]?.t ?? 0}
+          onAccount={setAccountView}
           onRefresh={() => setReload((value) => value + 1)}
         />
         {!tape || !result ? (
@@ -2133,7 +2195,7 @@ export function DeskApp() {
           <ChartPane
             bars={tape.bars}
             ind={result.indicators}
-            fills={book === "play" ? result.fills : LIVE_FILLS}
+            fills={showingAccount ? accountFills : result.fills}
             params={liveParams}
             holdOn={result.holdOn}
             recover={result.recover}
@@ -2166,7 +2228,7 @@ export function DeskApp() {
           ) : (
             <div className="flex flex-col gap-4">
               <div>
-                <h2 className="text-sm font-medium">Play-money read</h2>
+                <h2 className="text-sm font-medium">{showingAccount ? "Strategy read" : "Play-money read"}</h2>
                 <p className="mt-1 font-mono text-xs text-muted tabular-nums">
                   {formatWhen(tape.bars[explain.index].t, tape.interval)} · close {formatPx(tape.bars[explain.index].c)}
                 </p>
@@ -2263,12 +2325,59 @@ export function DeskApp() {
               Play money
             </button>
             <button type="button" role="tab" aria-selected={book === "live"} className="desk-chip" data-on={book === "live"} onClick={() => setBook("live")}>
-              Live book
+              {accountView ? accountName : "Alpaca"}
             </button>
           </div>
-          {book === "live" || !playStats ? (
-            <p className="text-sm text-muted text-pretty">The live book on this desk stays empty. Alpaca fills are on the Alpaca panel. Play-money fills stay in the other book.</p>
-          ) : (
+          {book === "live" && !accountView ? (
+            <p className="text-sm text-muted text-pretty">Alpaca is not connected. The curve and the blotter stay on play money until the paper or live account answers.</p>
+          ) : book === "live" && accountView ? (
+            <>
+              <figure className="mb-3">
+                <figcaption className="text-sm text-muted text-pretty">
+                  Bronze is the {accountName.toLowerCase()}. Gray is buy and hold of {symbol} on this tape. The account line is Alpaca's equity, not the play-money book.
+                </figcaption>
+                <EquityCurve
+                  strategy={accountCurve.some((value) => value > 0) ? accountCurve : [accountView.equity, accountView.equity]}
+                  hold={(result?.holdEquity ?? []).slice(result?.rangeStart ?? 0, result?.rangeEnd ?? 0)}
+                />
+              </figure>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-line py-3 sm:grid-cols-3 xl:grid-cols-6">
+                <div>
+                  <dt className="text-xs text-muted">Account return</dt>
+                  <dd className={`font-mono text-lg tabular-nums ${tone(seriesReturnPct(accountCurve))}`}>{formatPct(seriesReturnPct(accountCurve))}</dd>
+                  <dd className="font-mono text-xs text-muted tabular-nums">{formatMoney(accountView.equity)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Buy and hold</dt>
+                  <dd className={`font-mono text-lg tabular-nums ${tone(playStats?.buyHoldReturnPct ?? 0)}`}>{formatPct(playStats?.buyHoldReturnPct ?? 0)}</dd>
+                  <dd className="font-mono text-xs text-muted tabular-nums">{formatMoney(playStats?.buyHoldEquity ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Difference</dt>
+                  <dd className={`font-mono text-lg tabular-nums ${tone(seriesReturnPct(accountCurve) - (playStats?.buyHoldReturnPct ?? 0))}`}>
+                    {formatPct(seriesReturnPct(accountCurve) - (playStats?.buyHoldReturnPct ?? 0))}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Round trips</dt>
+                  <dd className="font-mono text-lg tabular-nums">{roundTrips(accountView.fills)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Open orders</dt>
+                  <dd className="font-mono text-lg tabular-nums">{accountView.orders.filter((order) => order.status !== "filled" && order.status !== "canceled" && order.status !== "expired" && order.status !== "rejected").length}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted">Max drawdown</dt>
+                  <dd className={`font-mono text-lg tabular-nums ${drawdownPct(accountCurve) > 0 ? "text-sell" : "text-paper"}`}>
+                    {drawdownPct(accountCurve).toFixed(2)}%
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-sm text-muted text-pretty">
+                Return and drawdown use Alpaca's equity over this tape. Fills are Alpaca's prices. Buy and hold is still this symbol on the tape, so the difference is the account against the symbol.
+              </p>
+            </>
+          ) : !playStats ? null : (
             <>
               <figure className="mb-3">
                 <figcaption className="text-sm text-muted text-pretty">
@@ -2334,11 +2443,11 @@ export function DeskApp() {
 
         <section data-testid="blotter" className="desk-panel shrink-0 overflow-hidden">
           <div className="flex items-baseline justify-between gap-3 px-4 py-3">
-            <h2 className="text-sm font-medium">{book === "play" ? "Play-money blotter" : "Live blotter"}</h2>
-            <p className="text-xs text-muted">{book === "play" ? `${shownFills.length} fills` : "Separate book"}</p>
+            <h2 className="text-sm font-medium">{showingAccount ? `${accountName} blotter` : "Play-money blotter"}</h2>
+            <p className="text-xs text-muted">{shownFills.length} fills</p>
           </div>
-          {book === "live" ? (
-            <p className="border-t border-line px-4 py-6 text-sm text-muted">No live fills on this book. Alpaca orders are listed on the Alpaca panel.</p>
+          {book === "live" && !accountView ? (
+            <p className="border-t border-line px-4 py-6 text-sm text-muted">Alpaca is not connected, so this blotter has no fills yet.</p>
           ) : (
             <div className="max-h-[32rem] overflow-auto border-t border-line">
               <table className="w-full border-collapse text-left text-xs">
@@ -2351,7 +2460,7 @@ export function DeskApp() {
                     <th className="px-2 py-2 font-medium" title="Fill price minus the bar close">
                       vs close
                     </th>
-                    <th className="px-2 py-2 font-medium" title="Portfolio value after the fill, including unsettled cash">
+                    <th className="px-2 py-2 font-medium" title="Account equity at this bar">
                       Portfolio
                     </th>
                     <th className="px-2 py-2 font-medium">Fee</th>
@@ -2362,13 +2471,13 @@ export function DeskApp() {
                   {shownFills.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-2 py-6 text-muted">
-                        No play-money fills on this tape.
+                        {showingAccount ? `No ${symbol} fills in this window.` : "No play-money fills on this tape."}
                       </td>
                     </tr>
                   )}
                   {shownFills.map((fill) => (
                     <tr
-                      key={`${fill.side}-${fill.index}`}
+                      key={"id" in fill ? String(fill.id) : `${fill.side}-${fill.index}`}
                       data-fill-index={fill.index}
                       tabIndex={0}
                       className={`blotter-row cursor-pointer border-t border-line ${selected === fill.index ? "bg-ink" : ""}`}
@@ -2387,7 +2496,7 @@ export function DeskApp() {
                       <td className="px-2 py-2 font-mono tabular-nums">{formatSignedPx(fill.price - fill.close)}</td>
                       <td className="px-2 py-2 font-mono tabular-nums">{formatMoney(fill.equityAfter)}</td>
                       <td className="px-2 py-2 font-mono tabular-nums">{formatMoney(fill.fee)}</td>
-                      <td className="px-2 py-2">{fill.strategies.map((id) => strategyName(id, runParams, fill.side)).join(", ")}</td>
+                      <td className="px-2 py-2">{showingAccount ? accountName : fill.strategies.map((id) => strategyName(id, runParams, fill.side)).join(", ")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2395,7 +2504,9 @@ export function DeskApp() {
             </div>
           )}
           <p className="border-t border-line px-4 py-2 text-xs text-muted">
-            Every fill is listed. Play-money fills print at the bar close. Portfolio value includes unsettled cash. Click a row to jump the chart there.
+            {showingAccount
+              ? `Fills are from the ${accountName.toLowerCase()}. The price is Alpaca's fill, not the bar close. Click a row to jump the chart there.`
+              : "Every fill is listed. Play-money fills print at the bar close. Portfolio value includes unsettled cash. Click a row to jump the chart there."}
           </p>
         </section>
       </main>

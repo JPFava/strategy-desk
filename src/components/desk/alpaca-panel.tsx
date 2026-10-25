@@ -13,6 +13,9 @@ export function AlpacaPanel({
   barTime,
   signal,
   sample,
+  from,
+  to,
+  onAccount,
   onRefresh,
 }: {
   symbol: string;
@@ -21,6 +24,9 @@ export function AlpacaPanel({
   barTime: number;
   signal: "buy" | "sell" | "none";
   sample: boolean;
+  from: number;
+  to: number;
+  onAccount: (view: AlpacaLook | null) => void;
   onRefresh: () => void;
 }) {
   const look = useServerFn(alpacaLook);
@@ -38,7 +44,11 @@ export function AlpacaPanel({
   const sent = useRef(new Set<string>());
   const floor = useRef(0);
   const refreshRef = useRef(onRefresh);
+  const accountRef = useRef(onAccount);
+  const rangeRef = useRef({ from, to });
   refreshRef.current = onRefresh;
+  accountRef.current = onAccount;
+  rangeRef.current = { from, to };
 
   useEffect(() => {
     try {
@@ -60,19 +70,24 @@ export function AlpacaPanel({
     let cancel = false;
     const pull = () => {
       lookRef
-        .current({ data: { symbol } })
+        .current({ data: { symbol, from: rangeRef.current.from, to: rangeRef.current.to } })
         .then((next) => {
           if (cancel) return;
           if (!next.ok) {
             setView(null);
+            accountRef.current(null);
             setError(next.error);
             return;
           }
           setError("");
           setView(next);
+          accountRef.current(next);
         })
         .catch(() => {
-          if (!cancel) setError("The desk could not reach Alpaca.");
+          if (!cancel) {
+            accountRef.current(null);
+            setError("The desk could not reach Alpaca.");
+          }
         });
     };
     pull();
@@ -81,7 +96,7 @@ export function AlpacaPanel({
       cancel = true;
       window.clearInterval(timer);
     };
-  }, [symbol]);
+  }, [symbol, from, to]);
 
   useEffect(() => {
     if (!keep) return;
@@ -105,8 +120,11 @@ export function AlpacaPanel({
         return;
       }
       setNote(orderNote(result.order, price));
-      const next = await lookRef.current({ data: { symbol } });
-      if (next.ok) setView(next);
+      const next = await lookRef.current({ data: { symbol, from: rangeRef.current.from, to: rangeRef.current.to } });
+      if (next.ok) {
+        setView(next);
+        accountRef.current(next);
+      }
     } catch {
       sent.current.delete(key);
       setNote("The desk could not reach Alpaca.");

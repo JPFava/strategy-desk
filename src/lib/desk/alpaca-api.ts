@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { alpacaHost, asNumber, cleanSymbol, isWorking, planOrder, readLiveArm, type AlpacaSide } from "./alpaca.ts";
+import { alpacaHost, asNumber, cleanSymbol, historyPath, isWorking, planOrder, readFills, readHistory, readLiveArm, type AccountFill, type AlpacaSide, type EquityPoint } from "./alpaca.ts";
 import { getCookie } from "@tanstack/react-start/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -84,6 +84,9 @@ export type AlpacaLook = {
   equity: number;
   positionQty: number;
   avgEntry: number | null;
+  buyingPower: number;
+  history: EquityPoint[];
+  fills: AccountFill[];
   orders: AlpacaOrderView[];
 };
 
@@ -110,13 +113,21 @@ export const alpacaLook = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: false; error: string } | AlpacaLook> => {
     const session = signedIn();
     if ("error" in session) return { ok: false, error: session.error };
-    const symbol = cleanSymbol(data && typeof data === "object" ? (data as { symbol?: unknown }).symbol : "");
+    const raw = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+    const symbol = cleanSymbol(raw.symbol);
+    const from = asNumber(raw.from);
+    const to = asNumber(raw.to) || Date.now();
     const broker = session.broker;
     try {
-      const [clock, account, orders] = await Promise.all([
+      const [clock, account, orders, history, fills] = await Promise.all([
         alpacaFetch(broker, "/v2/clock"),
         alpacaFetch(broker, "/v2/account"),
-        alpacaFetch(broker, `/v2/orders?status=all&limit=15&direction=desc${symbol ? `&symbols=${encodeURIComponent(symbol)}` : ""}`),
+        alpacaFetch(broker, `/v2/orders?status=all&limit=50&direction=desc${symbol ? `&symbols=${encodeURIComponent(symbol)}` : ""}`),
+        alpacaFetch(broker, from > 0 ? historyPath(from, to) : "/v2/account/portfolio/history?period=1M&timeframe=1D"),
+        alpacaFetch(
+          broker,
+          `/v2/account/activities/FILL?page_size=100&direction=asc${from > 0 ? `&after=${encodeURIComponent(new Date(from).toISOString())}` : ""}`,
+        ),
       ]);
       if (account.status === 401 || clock.status === 401) return { ok: false, error: alpacaError(401, account.body) };
       if (account.status >= 400) return { ok: false, error: alpacaError(account.status, account.body) };
@@ -146,6 +157,9 @@ export const alpacaLook = createServerFn({ method: "POST" })
         equity: asNumber(acct.equity),
         positionQty,
         avgEntry,
+        buyingPower: asNumber(acct.buying_power),
+        history: history.status < 400 ? readHistory(history.body) : [],
+        fills: fills.status < 400 ? readFills(fills.body, symbol) : [],
         orders: list,
       };
     } catch {
