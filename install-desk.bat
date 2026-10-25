@@ -46,6 +46,7 @@ start "" http://127.0.0.1:8080/
 echo.
 echo Strategy Desk is open at http://127.0.0.1:8080
 echo Leave the Strategy Desk window open. Closing it stops the desk.
+echo To start it again later, double-click restart-desk.bat. Orders are off until you turn them on.
 timeout /t 8 /nobreak >nul
 exit /b 0
 

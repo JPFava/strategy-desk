@@ -24,6 +24,8 @@ That installs Node.js 22 or newer if needed, then opens the desk at `http://127.
 
 If Windows asks to approve Node.js, approve it, then double-click the file again. The page opens when the program is ready. Leave the Strategy Desk window open. Closing it stops the desk.
 
+If that window is closed, double-click `restart-desk.bat` in the same folder. It does not install anything again. The page opens when the program is ready. Orders are off until you turn them on.
+
 ## Alpaca paper
 
 The email and password on the first screen belong to this desk, not to Alpaca.

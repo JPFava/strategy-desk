@@ -30,6 +30,10 @@ That downloads the desk into your home folder, where Terminal is allowed to run 
 
 If Windows asks to approve Node.js, approve it, then double-click `install-desk.bat` again. The page opens when the program is ready. Leave the Strategy Desk window open. Closing it stops the desk.
 
+If that window is closed, or the computer was restarted, double-click `restart-desk.bat` in the same folder. It starts the program again and opens the page when it is ready. It does not reinstall. Orders are off until you turn them on.
+
+On a Mac, open Terminal in that same folder and run `bash restart-desk.sh`. Leave that window open.
+
 ### Alpaca paper keys
 
 The first screen is **Create this desk**. The email and password are for this computer only. They are not the Alpaca login.
