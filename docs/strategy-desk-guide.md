@@ -28,7 +28,7 @@ That downloads the desk into your home folder, where Terminal is allowed to run 
 2. Unzip it. Open the folder named `strategy-desk-main`.
 3. Double-click `install-desk.bat`.
 
-If Windows asks to approve Node.js, approve it, then double-click `install-desk.bat` again. The desk opens at `http://127.0.0.1:8080`. Leave that window open. Closing it stops the desk.
+If Windows asks to approve Node.js, approve it, then double-click `install-desk.bat` again. The page opens when the program is ready. Leave the Strategy Desk window open. Closing it stops the desk.
 
 ### Alpaca paper keys
 

@@ -22,7 +22,7 @@ That installs Node.js 22 or newer if needed, then opens the desk at `http://127.
 2. Unzip it and open the folder `strategy-desk-main`.
 3. Double-click `install-desk.bat`.
 
-If Windows asks to approve Node.js, approve it, then double-click the file again. Leave the window open. The desk is at `http://127.0.0.1:8080`.
+If Windows asks to approve Node.js, approve it, then double-click the file again. The page opens when the program is ready. Leave the Strategy Desk window open. Closing it stops the desk.
 
 ## Alpaca paper
 

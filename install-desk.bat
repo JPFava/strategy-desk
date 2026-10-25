@@ -24,12 +24,36 @@ if errorlevel 1 (
   exit /b 1
 )
 
+curl.exe -sf -o NUL --max-time 2 http://127.0.0.1:8080/ >nul 2>&1
+if not errorlevel 1 goto open_browser
+
 echo.
-echo Starting Strategy Desk at http://127.0.0.1:8080
-start "" cmd /c "timeout /t 3 /nobreak >nul & start http://127.0.0.1:8080/"
-call npm run dev
-if errorlevel 1 pause
-exit /b %errorlevel%
+echo Starting Strategy Desk. The page opens when the program is ready.
+echo Leave the Strategy Desk window open. Closing it stops the desk.
+start "Strategy Desk" /D "%CD%" cmd /k npm run dev
+
+set TRIES=0
+:wait_ready
+set /a TRIES+=1
+if %TRIES% GTR 60 goto not_ready
+curl.exe -sf -o NUL --max-time 2 http://127.0.0.1:8080/ >nul 2>&1
+if not errorlevel 1 goto open_browser
+timeout /t 2 /nobreak >nul
+goto wait_ready
+
+:open_browser
+start "" http://127.0.0.1:8080/
+echo.
+echo Strategy Desk is open at http://127.0.0.1:8080
+echo Leave the Strategy Desk window open. Closing it stops the desk.
+timeout /t 8 /nobreak >nul
+exit /b 0
+
+:not_ready
+echo.
+echo The desk did not start. Read the Strategy Desk window for the error.
+pause
+exit /b 1
 
 :need_node
 where node >nul 2>&1

@@ -48,6 +48,20 @@ fi
 echo "Node.js $(node_major) is ready."
 echo "Installing desk packages..."
 npm install
-echo "Starting Strategy Desk at http://127.0.0.1:8080"
-(sleep 2 && open "http://127.0.0.1:8080/") &
+if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8080/; then
+  open "http://127.0.0.1:8080/"
+  echo "Strategy Desk is already running at http://127.0.0.1:8080"
+  exit 0
+fi
+echo "Starting Strategy Desk. The page opens when the program is ready."
+echo "Leave this window open. Closing it stops the desk."
+(
+  for _ in $(seq 1 60); do
+    if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8080/; then
+      open "http://127.0.0.1:8080/"
+      exit 0
+    fi
+    sleep 2
+  done
+) &
 exec npm run dev
