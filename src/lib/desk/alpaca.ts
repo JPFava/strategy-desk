@@ -225,6 +225,43 @@ export function roundTrips(fills: readonly { side: AlpacaSide }[]): number {
   return Math.min(buys, sells);
 }
 
+export function nextAccountSignal(
+  positionQty: number,
+  signalBuy: boolean,
+  signalSell: boolean,
+  sellHold: boolean,
+): "buy" | "sell" | "none" {
+  if (positionQty < 0) return "none";
+  if (positionQty > 0) return signalSell && !sellHold ? "sell" : "none";
+  return signalBuy ? "buy" : "none";
+}
+
+export function missedSignals(
+  rows: readonly { signalBuy: boolean; signalSell: boolean; sellHold: boolean }[],
+  fills: readonly { index: number; side: AlpacaSide }[],
+  positionQty: number,
+): { index: number; side: AlpacaSide }[] {
+  const bought = new Set<number>();
+  const sold = new Set<number>();
+  for (const fill of fills) {
+    if (fill.side === "buy") bought.add(fill.index);
+    else sold.add(fill.index);
+  }
+  let long = positionQty > 0;
+  const missed: { index: number; side: AlpacaSide }[] = [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const didBuy = bought.has(i);
+    const didSell = sold.has(i);
+    if (didBuy && !didSell) long = false;
+    else if (didSell && !didBuy) long = true;
+    const row = rows[i];
+    if (!long && row?.signalBuy && !didBuy) missed.push({ index: i, side: "buy" });
+    if (long && row?.signalSell && !row.sellHold && !didSell) missed.push({ index: i, side: "sell" });
+  }
+  missed.reverse();
+  return missed;
+}
+
 export function barIndexAt(times: readonly number[], time: number): number {
   let index = -1;
   for (let i = 0; i < times.length; i++) {

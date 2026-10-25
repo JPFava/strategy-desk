@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { barIndexAt, clientOrderId, drawdownPct, equityOnBars, issueLiveArm, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
+import { barIndexAt, clientOrderId, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
 
 const base = {
   paper: true,
@@ -49,6 +49,21 @@ test("an unlock file is not a live key", () => {
   const file = issueLiveArm(" Ada ", "2026-10-25");
   assert.equal(file.kind, LIVE_KIND);
   assert.equal(readLiveArm(file)?.tester, "Ada");
+});
+
+test("a flat account buys the next valid signal and does not invent the ones it missed", () => {
+  assert.equal(nextAccountSignal(0, true, true, false), "buy");
+  assert.equal(nextAccountSignal(4, true, true, false), "sell");
+  assert.equal(nextAccountSignal(4, false, true, true), "none");
+  const missed = missedSignals(
+    [
+      { signalBuy: true, signalSell: false, sellHold: false },
+      { signalBuy: false, signalSell: true, sellHold: false },
+    ],
+    [{ index: 0, side: "buy" }],
+    4,
+  );
+  assert.deepEqual(missed, [{ index: 1, side: "sell" }]);
 });
 
 test("account history and fills land on the bars of this tape", () => {

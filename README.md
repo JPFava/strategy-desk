@@ -1,6 +1,6 @@
 # Strategy Desk
 
-Version 1.6.1. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. Paper keys show the paper account. Live keys show the live account. Play money stays on its own tab.
+Version 1.6.2. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. A solid triangle is a fill. An open triangle is a valid signal that was not traded. The next order follows the account position.
 
 This is the tester copy. It fires no strategy until you load the unlock file you were sent. That file is not in this repository. Brokerage keys stay on your computer.
 

@@ -148,7 +148,7 @@ export function AlpacaPanel({
         <p className="text-xs text-muted">{view ? (view.paper ? "Paper account" : "Live account") : "Not connected"}</p>
       </div>
       <p className="mt-2 text-sm text-muted text-pretty">
-        Play money stays on this desk. This panel sends the latest bar's signal to Alpaca, one position, whole shares, market order. A paper key talks only to the paper account. A live order also needs the live key, and it is real money.
+        Play money stays on its own tab. This panel sends one order for the latest bar, and only the side the Alpaca position allows: a buy when the account is flat, a sell when it is long. It does not replace a signal that passed while the desk was off. An open triangle on the chart is that missed signal. A solid triangle is a fill.
       </p>
       {error && <p className="mt-2 text-sm text-sell">{error}</p>}
       {view && (

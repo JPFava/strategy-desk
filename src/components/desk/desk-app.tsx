@@ -6,7 +6,7 @@ import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
 import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
-import { barIndexAt, drawdownPct, equityOnBars, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import { barIndexAt, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
 import type { AlpacaLook } from "@/lib/desk/alpaca-api";
 import {
   DELAYS,
@@ -1103,6 +1103,27 @@ export function DeskApp() {
     );
   }, [tape, result, accountView]);
   const shownFills = showingAccount ? accountFills : (result?.fills ?? []);
+  const accountSignal =
+    accountView && last
+      ? nextAccountSignal(accountView.positionQty, Boolean(last.signalBuy), Boolean(last.signalSell), last.sellHold)
+      : (last?.action ?? "none");
+  const missed = useMemo(() => {
+    if (!showingAccount || !result || !accountView) return undefined;
+    const rows = result.trace.map((row) => ({ signalBuy: row.signalBuy, signalSell: row.signalSell, sellHold: row.sellHold }));
+    return missedSignals(rows, accountFills, accountView.positionQty);
+  }, [showingAccount, result, accountView, accountFills]);
+  const since = accountView?.fills[0]?.time ?? accountView?.history[0]?.time ?? 0;
+
+  useEffect(() => {
+    if (!tape || tape.source === "sample" || !(since > 0)) return;
+    const start = barIndexAt(
+      tape.bars.map((bar) => bar.t),
+      since,
+    );
+    if (start < 0) return;
+    setWindowId(null);
+    setView({ start, end: tape.bars.length });
+  }, [accountKind, tapeKey, since, tape]);
   const explain =
     result && tape && selected != null && result.trace[selected]
       ? explainAt(selected, tape.bars, result.indicators, liveParams, tape.interval, result.trace[selected])
@@ -2182,7 +2203,7 @@ export function DeskApp() {
           dollars={account.dollarsPerBuy}
           price={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.c ?? 0) : 0}
           barTime={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.t ?? 0) : 0}
-          signal={last?.action ?? "none"}
+          signal={accountSignal}
           sample={tape?.source === "sample"}
           from={tape?.bars[0]?.t ?? 0}
           to={tape?.bars[tape.bars.length - 1]?.t ?? 0}
@@ -2196,6 +2217,7 @@ export function DeskApp() {
             bars={tape.bars}
             ind={result.indicators}
             fills={showingAccount ? accountFills : result.fills}
+            missed={showingAccount ? missed : undefined}
             params={liveParams}
             holdOn={result.holdOn}
             recover={result.recover}
@@ -2233,12 +2255,22 @@ export function DeskApp() {
                   {formatWhen(tape.bars[explain.index].t, tape.interval)} · close {formatPx(tape.bars[explain.index].c)}
                 </p>
                 <p className="mt-2 text-sm">
-                  {explain.book === "flat" ? "Book was flat." : `Book was long ${formatQty(explain.shares)} shares.`}{" "}
-                  {explain.sellHold && !explain.holdCancelled
-                    ? `Sell hold is on. The session low is ${explain.dropFromPriorPct.toFixed(1)}% under the prior close ${formatPx(explain.priorClose)}${explain.holdRecover != null ? `, recovery at ${formatPx(explain.holdRecover)}` : ""}.`
-                    : explain.holdCancelled
-                      ? "Sell hold is off. This buy cancelled it for the rest of the session."
-                      : "Sell hold is off."}{" "}
+                  {showingAccount && accountView
+                    ? `${accountName} is ${accountView.positionQty > 0 ? `long ${formatQty(accountView.positionQty)}` : "flat"}. ${
+                        missed?.some((mark) => mark.index === explain.index)
+                          ? "This bar's signal was valid and was not traded."
+                          : accountFills.some((fill) => fill.index === explain.index)
+                            ? "Alpaca filled this bar."
+                            : "This bar has no Alpaca fill."
+                      } The next order follows that position, not the play-money book.`
+                    : <>
+                        {explain.book === "flat" ? "Book was flat." : `Book was long ${formatQty(explain.shares)} shares.`}{" "}
+                        {explain.sellHold && !explain.holdCancelled
+                          ? `Sell hold is on. The session low is ${explain.dropFromPriorPct.toFixed(1)}% under the prior close ${formatPx(explain.priorClose)}${explain.holdRecover != null ? `, recovery at ${formatPx(explain.holdRecover)}` : ""}.`
+                          : explain.holdCancelled
+                            ? "Sell hold is off. This buy cancelled it for the rest of the session."
+                            : "Sell hold is off."}{" "}
+                      </>}
                 </p>
                 <p className="mt-1 text-sm">
                   {combinationCopy("buy", explain, runParams)} {combinationCopy("sell", explain, runParams)}

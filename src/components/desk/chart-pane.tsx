@@ -5,10 +5,13 @@ import type { Fill, Indicators, LogicDiagram, LogicLane, LogicLevel } from "@/li
 
 type View = { start: number; end: number };
 
+export type ChartMark = { index: number; side: "buy" | "sell" };
+
 type Props = {
   bars: Bar[];
   ind: Indicators;
   fills: Fill[];
+  missed?: ChartMark[];
   params: DeskParams;
   holdOn: boolean[];
   recover: (number | null)[];
@@ -450,6 +453,7 @@ function GraphLegend({
   hot,
   onHot,
   onToggle,
+  accountMarks,
 }: {
   title: string;
   items: typeof SERIES;
@@ -458,6 +462,7 @@ function GraphLegend({
   hot: SeriesId | null;
   onHot: (id: SeriesId | null) => void;
   onToggle: (id: SeriesId) => void;
+  accountMarks?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1 px-3 py-1" data-testid={title === "Dollars" ? "legend-price" : "legend-osc"}>
@@ -499,6 +504,9 @@ function GraphLegend({
             <span className="size-3 rounded-sm bg-sell" aria-hidden />
             Down candle and sell
           </span>
+          {accountMarks && (
+            <span className="flex h-11 items-center gap-2 px-2 text-xs text-muted">Open triangle: signal, no trade. Solid triangle: Alpaca fill.</span>
+          )}
         </>
       )}
     </div>
@@ -529,10 +537,35 @@ function ResizeBar({ label, height, onDrag }: { label: string; height: number; o
   );
 }
 
+function markTriangle(ctx: CanvasRenderingContext2D, x: number, y: number, buy: boolean, open: boolean) {
+  ctx.beginPath();
+  if (buy) {
+    ctx.moveTo(x, y + 6);
+    ctx.lineTo(x - 5, y - 4);
+    ctx.lineTo(x + 5, y - 4);
+  } else {
+    ctx.moveTo(x, y - 6);
+    ctx.lineTo(x - 5, y + 4);
+    ctx.lineTo(x + 5, y + 4);
+  }
+  ctx.closePath();
+  if (open) {
+    ctx.fillStyle = deskColors.ink;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = buy ? deskColors.buy : deskColors.sell;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = buy ? deskColors.buy : deskColors.sell;
+    ctx.fill();
+  }
+}
+
 export function ChartPane({
   bars,
   ind,
   fills,
+  missed,
   params,
   holdOn,
   recover,
@@ -878,19 +911,16 @@ export function ChartPane({
       const x = xOf(fill.index, view, plotW);
       const buy = fill.side === "buy";
       const y = buy ? yOf(b.l) + 11 : yOf(b.h) - 11;
-      ctx.beginPath();
-      ctx.fillStyle = buy ? deskColors.buy : deskColors.sell;
-      if (buy) {
-        ctx.moveTo(x, y + 6);
-        ctx.lineTo(x - 5, y - 4);
-        ctx.lineTo(x + 5, y - 4);
-      } else {
-        ctx.moveTo(x, y - 6);
-        ctx.lineTo(x - 5, y + 4);
-        ctx.lineTo(x + 5, y + 4);
-      }
-      ctx.closePath();
-      ctx.fill();
+      markTriangle(ctx, x, y, buy, false);
+    }
+    for (const mark of missed ?? []) {
+      if (mark.index < view.start || mark.index >= view.end) continue;
+      const b = bars[mark.index];
+      if (!b) continue;
+      const x = xOf(mark.index, view, plotW);
+      const buy = mark.side === "buy";
+      const y = buy ? yOf(b.l) + 22 : yOf(b.h) - 22;
+      markTriangle(ctx, x, y, buy, true);
     }
 
     if (mark != null && mark >= view.start && mark < view.end) {
@@ -946,7 +976,7 @@ export function ChartPane({
       ctx.fillText(label, tx + 4, cursor.y);
       ctx.restore();
     }
-  }, [bars, buyAt, cursor, fills, graph, holdOn, hot, hover, ind, interval, params, recover, selected, sellAt, size, view]);
+  }, [bars, buyAt, cursor, fills, graph, holdOn, hot, hover, ind, interval, missed, params, recover, selected, sellAt, size, view]);
 
   useEffect(() => {
     const canvas = indRef.current;
@@ -1183,6 +1213,7 @@ export function ChartPane({
         hot={hot}
         onHot={setHot}
         onToggle={toggleGraph}
+        accountMarks={missed != null}
       />
       <ResizeBar
         label="Resize the dollar chart"

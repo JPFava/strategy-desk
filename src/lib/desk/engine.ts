@@ -61,6 +61,8 @@ export type Trace = {
   holdRecover: number | null;
   dropFromPriorPct: number;
   action: "buy" | "sell" | "none";
+  signalBuy: boolean;
+  signalSell: boolean;
   fired: StrategyId[];
   skipped: { id: StrategyId; side: "buy" | "sell"; reason: string }[];
   holdCancelled: boolean;
@@ -1850,6 +1852,8 @@ export function applySignals(
       holdRecover: sellHold ? holdRecover : null,
       dropFromPriorPct,
       action,
+      signalBuy: buyers.length > 0,
+      signalSell: sellers.length > 0,
       fired,
       skipped: skippedHere,
       holdCancelled,
