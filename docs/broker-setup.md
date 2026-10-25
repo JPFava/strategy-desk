@@ -1,10 +1,10 @@
 # Opening a brokerage account for this desk
 
-Strategy Desk 1.5.0. This page is the signup on your own computer. It does not open a brokerage account, and it does not send an order.
+Strategy Desk 1.6.0. This page is the signup on your own computer. It does not open a brokerage account. Paper orders are sent only when you press send on the Alpaca panel. Live orders also need the live key file.
 
 You open the account at the firm. You create that firm's keys there. You paste only the keys this desk asks for. The firm's own password stays at the firm. The desk password only unlocks this copy.
 
-The keys are sealed on this computer. They are not sent to another Strategy Desk, and they are not stored in the browser. Live orders stay off after you save the keys. Play money is still the only book that fills.
+The keys are sealed on this computer. They are not sent to another Strategy Desk, and they are not stored in the browser. Play money still fills on its own. An Alpaca paper order is a separate fill at Alpaca.
 
 ## What you do once, on this computer
 
@@ -38,7 +38,7 @@ A live order, once this desk is armed in a later version, would differ in these 
 
 **Keys.** In the Alpaca dashboard, open API keys for the account you mean. Copy the key into **API key** and the secret into **API secret**. The secret is shown once. If you lose it, generate a new pair and paste that. Do not paste the key into email or into a saved-book JSON. Saved books do not contain these keys.
 
-**Login limits.** The key does not expire on a seven-day clock. It works while the account is open and the key has not been revoked. Paper and live are different hosts. This desk stores the pair and does not call either host yet.
+**Login limits.** The key does not expire on a seven-day clock. It works while the account is open and the key has not been revoked. Paper and live are different hosts. This desk calls the host that matches the Paper account box. It sends a market order only from the Alpaca panel, and only for the latest signal.
 
 **Minimums and trade count.** No minimum deposit. No required number of trades. The free market-data feed is IEX only, 200 requests a minute, 30 symbols. The full US tape is optional at $99 a month. This desk builds its own bars, so you do not need that feed to study a book. A later live order would still need a quote at send time. The Elite Smart Router is optional. It is not required for this desk. A business deposit, on Alpaca's own page, is what unlocks that router. It changes the commission. It is not an account minimum.
 

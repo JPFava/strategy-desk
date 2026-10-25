@@ -1,6 +1,6 @@
 # Strategy Desk
 
-Version 1.5.0. A cash-account research book. It does not send orders.
+Version 1.6.0. One desk. Play money stays on the computer. Alpaca paper orders are sent from the Alpaca panel. Live orders need a separate live key and are real money.
 
 This is the tester copy. It fires no strategy until you load the unlock file you were sent. That file is not in this repository. Brokerage keys stay on your computer.
 
@@ -33,15 +33,18 @@ The email and password on the first screen belong to this desk, not to Alpaca.
 3. On the desk, choose **Alpaca**, leave **Paper account** checked, and paste them into **API key** and **API secret**.
 4. Press **Create this desk**.
 5. Under **Strategies**, load the unlock file you were sent. Until you do, no strategy fires.
+6. On the Alpaca panel, press **Send this signal** to send the latest bar once. **Send each new bar** waits for a newer bar and needs the window left open. A fill is Alpaca's price, not the play-money close. If the market is closed, the order can wait until the next open.
 
 Do not email the secret, and do not put it in a saved book.
 
 ## Going live later
 
-This version still does not send an order. Saving a live key only stores it on this computer for a later version.
+Live orders are real money. The desk you install is the same one. What changes is the key.
 
 1. In Alpaca, switch to the live account and generate a new key. It is a different pair from paper.
 2. On the desk, press **Change brokerage**.
 3. Choose **Alpaca**, uncheck **Paper account**, paste the live key and secret, and press **Save brokerage**.
+4. On the Alpaca panel, load the live key file you were sent. Without that file the panel will not send.
+5. Press **Send this signal** only when you mean a real order.
 
-Check **Paper account** and paste the paper pair again to go back. The Live switch on the book stays off either way.
+Check **Paper account** and paste the paper pair again to go back. Remove the live key when you are done with it.

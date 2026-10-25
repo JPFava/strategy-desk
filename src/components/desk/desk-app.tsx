@@ -4,6 +4,7 @@ import * as Switch from "@radix-ui/react-switch";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
+import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
 import {
   DELAYS,
@@ -56,6 +57,7 @@ import { buildSampleTape } from "@/lib/desk/sample";
 import { fetchTape, type Tape } from "@/lib/desk/tape";
 import { GUIDE_PATH, PRODUCT_VERSION, STRATEGIES_PATH } from "@/lib/desk/version";
 import { applyUnlock, issueUnlock, readUnlock, strategiesOff, UNLOCK_KIND, type AllowId, type UnlockFile } from "@/lib/desk/unlock";
+import { issueLiveArm, liveFileName } from "@/lib/desk/alpaca";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
 
 const STORE_KEY = "strategy-desk-settings-v4";
@@ -1201,6 +1203,19 @@ export function DeskApp() {
     URL.revokeObjectURL(url);
   }
 
+  function writeLiveFile() {
+    const name = testerName.trim();
+    if (!name) return;
+    const file = issueLiveArm(name);
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = liveFileName(name);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div data-testid="desk" className="flex min-h-dvh flex-col bg-ink text-paper lg:grid lg:h-dvh lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden">
       <header className="order-1 border-b border-line px-4 py-4 lg:col-span-2 lg:order-none">
@@ -1287,8 +1302,8 @@ export function DeskApp() {
               <Switch.Thumb className="desk-thumb absolute top-1 left-0 block size-6 translate-x-1 rounded-full bg-paper" />
             </Switch.Root>
             <p className="max-w-xs text-sm text-pretty text-muted">
-              <span className="font-medium text-paper">Live off. </span>
-              Live orders stay off until a later session is armed.
+              <span className="font-medium text-paper">Live switch off. </span>
+              Paper orders are sent from the Alpaca panel. A live order also needs the live key.
             </p>
           </div>
         </div>
@@ -1310,7 +1325,7 @@ export function DeskApp() {
                   <>
                     <h3 className="text-sm font-medium">Unlock file</h3>
                     <p className="mt-2 text-sm text-muted text-pretty">
-                      Write one file per tester. Check the strategies that tester may change. Every other setting is taken from this book and stays locked. Send the file. Their desk fires nothing until they load it.
+                      Write one file per tester. Check the strategies that tester may change. Every other setting is taken from this book and stays locked. Send the file. Their desk fires nothing until they load it. Write a live key only when that tester may send real Alpaca orders. Paper orders do not need it.
                     </p>
                     <label className="mt-3 block text-xs text-muted">
                       Tester
@@ -1341,6 +1356,9 @@ export function DeskApp() {
                     </div>
                     <button type="button" className="desk-chip mt-3 disabled:opacity-40" data-testid="write-unlock" disabled={!testerName.trim()} onClick={writeUnlockFile}>
                       Write unlock
+                    </button>
+                    <button type="button" className="desk-chip mt-3 ml-2 disabled:opacity-40" data-testid="write-live" disabled={!testerName.trim()} onClick={writeLiveFile}>
+                      Write live key
                     </button>
                   </>
                 ) : (
@@ -2100,6 +2118,15 @@ export function DeskApp() {
             {tape.notice}. These bars are simulated so the desk can still run. They are not market prints.
           </p>
         )}
+        <AlpacaPanel
+          symbol={symbol}
+          dollars={account.dollarsPerBuy}
+          price={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.c ?? 0) : 0}
+          barTime={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.t ?? 0) : 0}
+          signal={last?.action ?? "none"}
+          sample={tape?.source === "sample"}
+          onRefresh={() => setReload((value) => value + 1)}
+        />
         {!tape || !result ? (
           <div className="desk-panel flex h-80 items-center px-4 text-sm text-muted">Pulling the {symbol} tape…</div>
         ) : (
@@ -2240,7 +2267,7 @@ export function DeskApp() {
             </button>
           </div>
           {book === "live" || !playStats ? (
-            <p className="text-sm text-muted text-pretty">Live book is empty. Live orders stay off until a later session is armed. Play-money fills stay in the other book.</p>
+            <p className="text-sm text-muted text-pretty">The live book on this desk stays empty. Alpaca fills are on the Alpaca panel. Play-money fills stay in the other book.</p>
           ) : (
             <>
               <figure className="mb-3">
@@ -2311,7 +2338,7 @@ export function DeskApp() {
             <p className="text-xs text-muted">{book === "play" ? `${shownFills.length} fills` : "Separate book"}</p>
           </div>
           {book === "live" ? (
-            <p className="border-t border-line px-4 py-6 text-sm text-muted">No live fills. Live orders stay off until a later session is armed.</p>
+            <p className="border-t border-line px-4 py-6 text-sm text-muted">No live fills on this book. Alpaca orders are listed on the Alpaca panel.</p>
           ) : (
             <div className="max-h-[32rem] overflow-auto border-t border-line">
               <table className="w-full border-collapse text-left text-xs">

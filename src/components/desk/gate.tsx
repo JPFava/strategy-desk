@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { DeskApp } from "@/components/desk/desk-app";
-import { loginGate, logoutGate, readGate, setupGate, updateBroker } from "@/lib/desk/vault.server";
+import { loginGate, logoutGate, readGate, setupGate, updateBroker } from "@/lib/desk/vault-gate";
 import { BROKERS, type BrokerId } from "@/lib/desk/vault-brokers";
 import { BROKER_PATH } from "@/lib/desk/version";
 import { previewPathPrefix } from "@/lib/preview-path-prefix";
@@ -109,7 +109,7 @@ function BrokerForm({
       </div>
       <label className="mt-3 flex min-h-11 items-center gap-3 text-sm">
         <input type="checkbox" checked={paper} onChange={(event) => setPaper(event.target.checked)} />
-        Paper account. Uncheck this only for a live account. The desk still will not send an order.
+        Paper account. Uncheck this only for a live account. Paper orders can be sent from the Alpaca panel. Live orders also need the live key file.
       </label>
       <p className="mt-2 text-sm text-bronze text-pretty">{choice.limitation}</p>
     </div>
@@ -271,7 +271,7 @@ export function Gate() {
       <h1 className="text-2xl font-medium tracking-tight">Strategy Desk</h1>
       <p className="mt-2 text-sm text-muted text-pretty">
         {setupMode
-          ? "Create the one sign-in for this computer. It does not open a brokerage account, and it does not send an order. The keys stay in an encrypted file on this machine."
+          ? "Create the one sign-in for this computer. It does not open a brokerage account. The keys stay in an encrypted file on this machine. Paper orders are sent only from the Alpaca panel."
           : "Sign in to this computer’s desk. The brokerage keys are already stored here."}
       </p>
       <form onSubmit={setupMode ? onSetup : onLogin} className="desk-panel mt-6 p-4">

@@ -1,6 +1,6 @@
 # How the strategies work
 
-Strategy Desk 1.5.0. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
+Strategy Desk 1.6.0. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
 
 Play money only. A high signal is not a live order.
 

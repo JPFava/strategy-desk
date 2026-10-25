@@ -1,7 +1,7 @@
 {
   "name": "app-builder-workspace",
-  "version": "1.5.0",
-  "description": "Strategy Desk 1.5.0, a cash-account research book. User's guide: public/strategy-desk-guide.pdf",
+  "version": "1.6.0",
+  "description": "Strategy Desk 1.6.0, a cash-account research book. User's guide: public/strategy-desk-guide.pdf",
   "private": true,
   "sideEffects": false,
   "type": "module",

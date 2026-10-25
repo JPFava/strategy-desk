@@ -1,8 +1,8 @@
 # Strategy Desk
 
-**Version 1.5.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
+**Version 1.6.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
-Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. It does not send orders. The Live switch stays off.
+Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can also send that latest signal as a market order. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off.
 
 A tester's copy fires no strategy until an unlock file is loaded. That file is sent separately. It is not in the public project. The keys for a brokerage stay on the computer that typed them.
 
@@ -48,14 +48,27 @@ After you are signed in, open **Strategies** and load the unlock file you were s
 
 ### When you want live keys
 
-This version still does not send an order. Changing the keys only stores a different pair on this computer. Do it when the live account is approved and you mean that pair to be the one a later version would use.
+Live orders are real money. They stay blocked until you load a live key file that was written for you. Saving live Alpaca keys is not enough.
 
 1. In the Alpaca dashboard, switch to the live account and generate a live key. It is not the paper key.
 2. On the desk, press **Change brokerage**.
 3. Choose **Alpaca**. Uncheck **Paper account**.
 4. Paste the live key and the live secret. Press **Save brokerage**.
+5. On the Alpaca panel, load the live key file. Then **Send this signal** can reach the live account.
 
-The paper pair is replaced. To go back, paste the paper pair, check **Paper account**, and save again. The Live switch on the book stays off either way.
+To go back, paste the paper pair, check **Paper account**, and save again. Remove the live key file if you do not want it stored on this computer.
+
+### Sending a paper order
+
+There is one desk. Paper and live are not two programs.
+
+1. Load a market tape. A sample tape will not send.
+2. Press **Recalculate** if the button is marked. The Alpaca panel uses the latest bar's play-money signal.
+3. Press **Send this signal** once. A buy spends up to the dollars-per-buy figure, and not more than Alpaca cash. A sell closes the Alpaca position. The desk holds one position and does not sell short.
+4. The order row shows Alpaca's status. A fill price is Alpaca's price, not the bar close.
+5. **Send each new bar** waits for a newer bar. Leave the window open. It does not replay old bars.
+
+If the market is closed, Alpaca can accept the order and fill it at the next open. The row stays on the panel until then.
 
 Market bars are requested from Yahoo Finance for the regular session only (no pre-market, no after-hours). If that request fails, the desk loads a sample tape and says so. Sample numbers are not the market.
 

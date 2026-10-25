@@ -22,7 +22,7 @@ export const BROKERS: BrokerChoice[] = [
     id: "alpaca",
     name: "Alpaca",
     blurb: "Paste the key and secret from the paper account or the live account. They are not the same pair.",
-    limitation: "A paper key only talks to the paper account. The live key is real money. This desk does not send either one.",
+    limitation: "A paper key only talks to the paper account. Uncheck this only when you paste the live key. Live orders also need the live key file, and they are real money.",
     fields: [
       { id: "keyId", label: "API key" },
       { id: "secret", label: "API secret", secret: true, long: true },
