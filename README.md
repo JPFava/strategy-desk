@@ -1,6 +1,6 @@
 # Strategy Desk
 
-Version 1.7.0. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. A solid triangle is a fill. An open triangle is a valid signal that was not traded. Orders are sent by the desk process on this computer, as a limit for the last closed bar, and only while that process is armed. A restart turns orders off. Do not leave a live account armed until paper has matched Alpaca across several sessions.
+Version 1.7.1. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. A solid triangle is a fill. An open triangle is a valid signal that was not traded. Orders are sent by the desk process on this computer, as a limit for the last closed bar, and only while that process is armed. Dollars per buy at 0 spends Starting cash plus this symbol's later profit, not the rest of the Alpaca balance. A restart turns orders off. Do not leave a live account armed until paper has matched Alpaca across several sessions.
 
 This is the tester copy. It fires no strategy until you load the unlock file you were sent. That file is not in this repository. Brokerage keys stay on your computer.
 

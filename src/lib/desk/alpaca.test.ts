@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { barIndexAt, clientOrderId, dailyStopHit, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, openingPosition, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
+import { barIndexAt, bookCash, clientOrderId, dailyStopHit, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, openingPosition, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
 
 const base = {
   paper: true,
@@ -95,4 +95,15 @@ test("account history and fills land on the bars of this tape", () => {
   assert.equal(barIndexAt([Date.parse("2026-10-01T13:55:00.000Z"), Date.parse("2026-10-01T14:00:00.000Z")], fills[0].time), 1);
   assert.equal(roundTrips([{ side: "buy" }, { side: "sell" }, { side: "buy" }]), 1);
   assert.equal(drawdownPct([100, 80, 90]), 20);
+});
+
+test("book cash starts at the bankroll and keeps a larger sale", () => {
+  assert.equal(bookCash(25_000, []), 25_000);
+  const bought = bookCash(25_000, [{ side: "buy", qty: 100, price: 249, time: 1 }], 100, 249);
+  assert.equal(bought, 100);
+  const sold = bookCash(25_000, [
+    { side: "buy", qty: 100, price: 249, time: 1 },
+    { side: "sell", qty: 100, price: 270, time: 2 },
+  ]);
+  assert.equal(sold, 27_100);
 });

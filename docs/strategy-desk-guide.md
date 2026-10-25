@@ -1,6 +1,6 @@
 # Strategy Desk
 
-**Version 1.7.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
+**Version 1.7.1.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
 Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can arm a process on this computer to send a limit for the last closed bar. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off. Do not leave live orders on until a paper account has matched Alpaca across several sessions, including a sleep and a restart.
 
@@ -65,7 +65,7 @@ There is one desk. Paper and live are not two programs. The browser does not sen
 1. Load a market tape. A sample tape will not send. When Alpaca is connected, the chart uses Alpaca IEX bars. Yahoo is only the stand-in before that connection.
 2. Press **Recalculate** if the button is marked. The armed book is the one just calculated, including the unlock limits.
 3. **Send this bar** sends the last closed bar once. **Turn orders on** keeps checking, about every 20 seconds, until you turn orders off. Closing the page does not stop that. Sleep, quit, or a restart does. A new process starts with orders off.
-4. Before each send it reads the clock, the account, the open orders, and the position. A working order means it sends nothing. The account position wins: buy only when flat, sell only when long. One position. Whole shares. A buy spends up to dollars-per-buy, or all of the cash if that figure is 0, and never more than Alpaca cash.
+4. Before each send it reads the clock, the account, the open orders, and the position. A working order means it sends nothing. The account position wins: buy only when flat, sell only when long. One position. Whole shares. With dollars per buy at 0, a buy spends book cash: Starting cash, then what this symbol's fills leave. A sale larger than the buy raises the next buy. It does not spend the rest of the Alpaca balance. A number above 0 is a fixed cap on that book cash. The order still cannot exceed Alpaca cash.
 5. The order is a limit around the closed bar. Slippage, in cents, is how far through that close the limit may go. The default is 15. The same bar is not sent twice.
 6. Nothing is sent while Alpaca says the market is closed, unless you check **Allow an order while the market is closed**.
 7. If equity is down by the daily-loss percent from the equity first seen that session, a long position is sold and orders turn off. The default is 3%. Arm them again only if you mean to.
@@ -142,7 +142,7 @@ This is what a fresh desk calculates. Every side that is on is AND.
 
 **Off until you switch them on:** last fill, the three hourly EMAs, the three EMA relations, and both trend tests.
 
-**Account:** $25,000 starting cash, no fees, dollars per buy = 0 (use all settled cash), sale proceeds spendable after 1 day, and confirmed-sale-proceeds off unless you turn that switch on. With the delay at 1 day and that switch off, sale cash cannot fund a buy until a day of bar-time has passed. Cash that was never spent can still buy during the wait.
+**Account:** $25,000 starting cash, no fees, dollars per buy = 0 (spend that bankroll, then what the fills leave), sale proceeds spendable after 1 day, and confirmed-sale-proceeds off unless you turn that switch on. With the delay at 1 day and that switch off, play-money sale cash cannot fund a buy until a day of bar-time has passed. Cash that was never spent can still buy during the wait. An Alpaca buy does not wait on that play-money delay. It spends book cash, and not more than Alpaca cash.
 
 ## 5. Shared indicators
 
@@ -444,10 +444,10 @@ Worked example. Prior close 100, drop 10%, recover 50%. The line is 90. The sess
 
 | Field | Starter | Effect |
 | --- | --- | --- |
-| Starting cash | 25,000 | Equity at bar zero, before any fill. |
-| Flat fee | 0 | Dollars charged on every buy and every sell. |
-| Percent fee | 0 | Percent of the gross, charged on every buy and every sell. |
-| Dollars per buy | 0 | 0 means spend all settled cash. Any other number is a cap, still limited by settled cash. |
+| Starting cash | 25,000 | The book's bankroll at the start. Play money begins here. An Alpaca buy, with dollars per buy at 0, also begins here. |
+| Flat fee | 0 | Dollars charged on every play-money buy and sell. Alpaca orders do not add this fee. |
+| Percent fee | 0 | Percent of the gross on every play-money fill. Alpaca orders do not add this fee. |
+| Dollars per buy | 0 | 0 spends book cash: starting cash, then this symbol's later profit or loss. A number above 0 is a fixed cap on that book cash. Neither can exceed the cash Alpaca reports. |
 | Delay | 1 day | How long sale proceeds stay unsellable-as-cash, measured from the bar's timestamp. Choices: instant, 15 minutes, 1 hour, 1 day, 2 days. |
 | Use confirmed sale proceeds | off | On, or delay = instant: sale cash is settled immediately. Off, and delay is not instant: proceeds sit unsettled until the delay elapses. |
 | From / To | empty | Inclusive Eastern session dates. Empty runs the whole tape. The book does not fill outside the window, and the return is marked at the last bar inside it. Indicators still use bars before From, so a short window is not a cold start. Press Recalculate after changing the dates. |

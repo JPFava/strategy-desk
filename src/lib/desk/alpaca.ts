@@ -302,6 +302,32 @@ export function openingPosition(
   return { qty: 0, price: 0 };
 }
 
+/** Cash this book may spend. Starts at starting cash. Buys of this symbol subtract and sells add, so a profitable sale raises the next buy. Never the rest of the brokerage balance. */
+export function bookCash(
+  startingCash: number,
+  fills: readonly { side: AlpacaSide; qty: number; price: number; time?: number }[],
+  positionQty = 0,
+  avgEntry = 0,
+): number {
+  let cash = Number.isFinite(startingCash) ? Math.max(0, startingCash) : 0;
+  let qty = 0;
+  const ordered = [...fills].sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+  for (const fill of ordered) {
+    const notion = Math.max(0, fill.qty) * Math.max(0, fill.price);
+    if (!(notion > 0)) continue;
+    if (fill.side === "buy") {
+      cash -= notion;
+      qty += fill.qty;
+    } else {
+      cash += notion;
+      qty = Math.max(0, qty - fill.qty);
+    }
+  }
+  const unexplained = positionQty - qty;
+  if (unexplained > 1e-6 && avgEntry > 0) cash -= unexplained * avgEntry;
+  return Math.max(0, cash);
+}
+
 export function barIndexAt(times: readonly number[], time: number): number {
   let index = -1;
   for (let i = 0; i < times.length; i++) {

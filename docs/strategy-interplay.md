@@ -1,6 +1,6 @@
 # How the strategies work
 
-Strategy Desk 1.7.0. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
+Strategy Desk 1.7.1. This is the companion to the user's guide. The guide covers installation, the account, and the formulas. This document says what each strategy is for, and how the ones you turn on act on each other.
 
 A high signal in play money is not an order. An order is sent only from the Alpaca panel, by the desk process, and only for the side the real position allows.
 

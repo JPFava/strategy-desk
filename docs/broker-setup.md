@@ -1,6 +1,6 @@
 # Opening a brokerage account for this desk
 
-Strategy Desk 1.7.0. This page is the signup on your own computer. It does not open a brokerage account. Alpaca paper orders are sent by the desk process on this computer when you send one bar or turn orders on. Live orders also need the live key file. A restart turns orders off.
+Strategy Desk 1.7.1. This page is the signup on your own computer. It does not open a brokerage account. Alpaca paper orders are sent by the desk process on this computer when you send one bar or turn orders on. Live orders also need the live key file. A restart turns orders off.
 
 You open the account at the firm. You create that firm's keys there. You paste only the keys this desk asks for. The firm's own password stays at the firm. The desk password only unlocks this copy.
 
@@ -23,7 +23,7 @@ The blotter fills at the close of the signal bar. A whole number of shares. One 
 A live order differs from play money in these ways.
 
 - The fill is the firm's price, not the close the signal used. The desk sends a limit a set number of cents through that close. On a liquid ETF the fill is often a penny or two. On a wide quote the limit can miss.
-- The desk sizes a buy from dollars-per-buy, or from all cash if that figure is 0, and never above the cash Alpaca reports. Whole shares. One long position. No short, no fraction, no second position.
+- The desk sizes a buy from book cash when dollars per buy is 0. Book cash starts at Starting cash. Buys of this symbol subtract and sells add, so a larger sale raises the next buy. It does not spend the rest of the Alpaca balance. A dollars-per-buy above 0 is a fixed cap on that book cash. Never above the cash Alpaca reports. Whole shares. One long position. No short, no fraction, no second position.
 - A working order blocks a new one. The account position wins over the play-money book. A missed signal is not sent later.
 - This book is long-only and cash. It does not use margin. A margin account at the firm can add the pattern-day-trader rule: under $25,000, four day trades in five business days can lock the account. A cash account is limited by settled cash instead. Open a cash account unless you mean to use margin.
 - US stock settlement is the next business day. Play money can wait one day for sale proceeds. Alpaca's settled-cash number is the one that funds a buy.

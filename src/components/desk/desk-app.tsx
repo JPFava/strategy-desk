@@ -6,7 +6,7 @@ import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
 import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
-import { barIndexAt, closedBarIndex, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, openingPosition, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import { barIndexAt, bookCash, closedBarIndex, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, openingPosition, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
 import { alpacaBars } from "@/lib/desk/session-api";
 import type { AlpacaLook } from "@/lib/desk/alpaca-api";
 import {
@@ -2111,7 +2111,17 @@ export function DeskApp() {
               <NumField label="Percent fee" value={account.percentFee} step={0.01} onChange={(percentFee) => setAccount((a) => ({ ...a, percentFee }))} />
               <NumField label="Dollars per buy" value={account.dollarsPerBuy} step={100} onChange={(dollarsPerBuy) => setAccount((a) => ({ ...a, dollarsPerBuy }))} />
             </div>
-            <p className="mt-2 text-xs text-muted">0 dollars per buy uses the cash that is allowed.</p>
+            <p className="mt-2 text-xs text-muted">
+              0 spends book cash. That starts at Starting cash. A later sale of this symbol puts the proceeds back, so a sale larger than the buy raises the next buy. It does not spend the rest of the Alpaca balance. A number above 0 is a fixed cap on that book cash.
+            </p>
+            {accountView && (
+              <p className="mt-1 text-xs text-muted">
+                Book cash {formatMoney(bookCash(account.startingCash, accountView.fills, accountView.positionQty, accountView.avgEntry ?? 0))}. Alpaca cash {formatMoney(accountView.cash)}.
+                {accountView.positionQty > 0
+                  ? " While this symbol is long, book cash is only the part not in the shares. The sale puts the proceeds back."
+                  : ""}
+              </p>
+            )}
             <label className="mt-3 flex flex-col gap-1">
               <span className="text-xs text-muted">Reconciliation delay</span>
               <select

@@ -8,6 +8,7 @@ import {
   alpacaHost,
   asNumber,
   barIndexAt,
+  bookCash,
   cleanSymbol,
   closedBarIndex,
   dailyStopHit,
@@ -360,8 +361,8 @@ async function tick(once = false): Promise<{ ok: true } | { ok: false; error: st
       logLine(bars.error);
       return { ok: false, error: bars.error };
     }
-    const fills = await call(signed.broker, `${host}/v2/account/activities/FILL?page_size=100&direction=asc&after=${encodeURIComponent(new Date(bars.bars[0].t).toISOString())}`);
-    const accountFills = fills.status < 400 ? readFills(fills.body, state.symbol) : [];
+    const fills = await symbolFills(signed.broker, host, state.symbol, bars.bars[0].t);
+    const accountFills = fills;
     const times = bars.bars.map((bar) => bar.t);
     const ledgerFills = accountFills.flatMap((fill) => {
       const index = barIndexAt(times, fill.time);
@@ -400,12 +401,14 @@ async function tick(once = false): Promise<{ ok: true } | { ok: false; error: st
       writeState(state);
       return { ok: true };
     }
+    const sleeve = bookCash(state.account.startingCash, accountFills, positionQty, avgEntry);
+    const dollars = state.account.dollarsPerBuy > 0 ? Math.min(state.account.dollarsPerBuy, sleeve) : sleeve;
     const plan = planOrder({
       paper: signed.broker.paper,
       liveArmed: state.liveOk,
       symbol: state.symbol,
       side,
-      dollars: state.account.dollarsPerBuy > 0 ? state.account.dollarsPerBuy : cash,
+      dollars,
       price: bars.bars[index].c,
       cash,
       positionQty,
@@ -433,7 +436,7 @@ async function tick(once = false): Promise<{ ok: true } | { ok: false; error: st
     }
     state.lastBar = barTime;
     state.lastClientOrderId = plan.body.client_order_id;
-    state.decision = `${side} limit ${plan.body.limit_price ?? ""} for ${plan.qty} shares.`;
+    state.decision = `${side} limit ${plan.body.limit_price ?? ""} for ${plan.qty} shares. Book cash ${sleeve.toFixed(2)}.`;
     if (stop) {
       state.armed = false;
       state.stopped = true;
@@ -464,6 +467,29 @@ function fail(state: SessionState, error: string): { ok: false; error: string } 
   writeState(state);
   logLine(error);
   return { ok: false, error };
+}
+
+async function symbolFills(broker: BrokerRecord, host: string, symbol: string, afterMs: number): Promise<ReturnType<typeof readFills>> {
+  const rows: unknown[] = [];
+  let token = "";
+  const after = encodeURIComponent(new Date(afterMs).toISOString());
+  try {
+    for (let page = 0; page < 5; page++) {
+      const response = await call(
+        broker,
+        `${host}/v2/account/activities/FILL?page_size=100&direction=asc&after=${after}${token ? `&page_token=${encodeURIComponent(token)}` : ""}`,
+      );
+      if (response.status >= 400 || !Array.isArray(response.body) || response.body.length === 0) break;
+      rows.push(...response.body);
+      const last = response.body[response.body.length - 1] as { id?: unknown };
+      const next = typeof last?.id === "string" ? last.id : "";
+      if (!next || response.body.length < 100) break;
+      token = next;
+    }
+  } catch {
+    return readFills(rows, symbol);
+  }
+  return readFills(rows, symbol);
 }
 
 function ensureLoop() {
