@@ -63,9 +63,10 @@ export type OrderPlan =
         symbol: string;
         qty: string;
         side: AlpacaSide;
-        type: "market";
+        type: "market" | "limit";
         time_in_force: "day";
         client_order_id: string;
+        limit_price?: string;
       };
     }
   | { ok: false; error: string };
@@ -82,8 +83,12 @@ export function planOrder(input: {
   sample: boolean;
   barTime: number;
   working: boolean;
+  marketOpen?: boolean;
+  allowClosed?: boolean;
+  slippageCents?: number;
 }): OrderPlan {
   if (input.sample) return { ok: false, error: "This tape is a sample. Load a market tape before sending an order." };
+  if (input.marketOpen === false && !input.allowClosed) return { ok: false, error: "The market is closed. No order was sent." };
   if (!input.paper && !input.liveArmed) {
     return { ok: false, error: "Live orders need the live key. Paper orders do not." };
   }
@@ -96,24 +101,26 @@ export function planOrder(input: {
   if (input.side === "sell") {
     const qty = Math.floor(input.positionQty);
     if (qty < 1) return { ok: false, error: "Alpaca is flat, so there is nothing to sell." };
-    return { ok: true, qty, body: orderBody(symbol, "sell", qty, input.barTime) };
+    return { ok: true, qty, body: orderBody(symbol, "sell", qty, input.barTime, input.price, input.slippageCents) };
   }
 
   if (input.positionQty > 0) return { ok: false, error: "Alpaca is already long this symbol. The desk holds one position." };
   const budget = Math.min(Math.max(0, input.dollars), Math.max(0, input.cash));
   const qty = Math.floor(budget / input.price);
   if (qty < 1) return { ok: false, error: "Alpaca cash cannot buy one share at the last close." };
-  return { ok: true, qty, body: orderBody(symbol, "buy", qty, input.barTime) };
+  return { ok: true, qty, body: orderBody(symbol, "buy", qty, input.barTime, input.price, input.slippageCents) };
 }
 
-function orderBody(symbol: string, side: AlpacaSide, qty: number, barTime: number) {
+function orderBody(symbol: string, side: AlpacaSide, qty: number, barTime: number, price: number, slippageCents?: number) {
+  const limit = typeof slippageCents === "number";
   return {
     symbol,
     qty: String(qty),
     side,
-    type: "market" as const,
+    type: limit ? ("limit" as const) : ("market" as const),
     time_in_force: "day" as const,
     client_order_id: clientOrderId(symbol, side, barTime),
+    ...(limit ? { limit_price: limitPrice(side, price, slippageCents).toFixed(2) } : {}),
   };
 }
 
@@ -260,6 +267,39 @@ export function missedSignals(
   }
   missed.reverse();
   return missed;
+}
+
+export function limitPrice(side: AlpacaSide, price: number, slippageCents: number): number {
+  const slip = Math.max(0, slippageCents) / 100;
+  const raw = side === "buy" ? price + slip : price - slip;
+  return Math.max(0.01, Math.round(raw * 100) / 100);
+}
+
+export function dailyStopHit(equity: number, dayStart: number, lossPct: number): boolean {
+  if (!(equity > 0) || !(dayStart > 0) || !(lossPct > 0)) return false;
+  return ((dayStart - equity) / dayStart) * 100 >= lossPct - 1e-9;
+}
+
+export function closedBarIndex(times: readonly number[], durationMs: number, now: number): number {
+  let index = -1;
+  for (let i = 0; i < times.length; i++) {
+    if (times[i] + durationMs <= now) index = i;
+  }
+  return index;
+}
+
+export function openingPosition(
+  fills: readonly { side: AlpacaSide; qty: number }[],
+  positionQty: number,
+  avgEntry: number,
+): { qty: number; price: number } {
+  let qty = 0;
+  for (const fill of fills) {
+    if (fill.side === "buy") qty += fill.qty;
+    else qty = Math.max(0, qty - fill.qty);
+  }
+  if (positionQty > 0 && qty < 1 && avgEntry > 0) return { qty: positionQty, price: avgEntry };
+  return { qty: 0, price: 0 };
 }
 
 export function barIndexAt(times: readonly number[], time: number): number {

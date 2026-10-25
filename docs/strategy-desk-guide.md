@@ -1,8 +1,8 @@
 # Strategy Desk
 
-**Version 1.6.2.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
+**Version 1.7.0.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
-Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can also send that latest signal as a market order. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off.
+Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can arm a process on this computer to send a limit for the last closed bar. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off. Do not leave live orders on until a paper account has matched Alpaca across several sessions, including a sleep and a restart.
 
 A tester's copy fires no strategy until an unlock file is loaded. That file is sent separately. It is not in the public project. The keys for a brokerage stay on the computer that typed them.
 
@@ -54,25 +54,27 @@ Live orders are real money. They stay blocked until you load a live key file tha
 2. On the desk, press **Change brokerage**.
 3. Choose **Alpaca**. Uncheck **Paper account**.
 4. Paste the live key and the live secret. Press **Save brokerage**.
-5. On the Alpaca panel, load the live key file. Then **Send this signal** can reach the live account.
+5. On the Alpaca panel, load the live key file. Orders stay off until you send one bar or turn orders on. A live order is real money.
 
 To go back, paste the paper pair, check **Paper account**, and save again. Remove the live key file if you do not want it stored on this computer.
 
 ### Sending a paper order
 
-There is one desk. Paper and live are not two programs.
+There is one desk. Paper and live are not two programs. The browser does not send the order. The desk process on this computer does.
 
-1. Load a market tape. A sample tape will not send.
-2. Press **Recalculate** if the button is marked. The Alpaca panel uses the latest bar's play-money signal.
-3. Press **Send this signal** once. A buy spends up to the dollars-per-buy figure, and not more than Alpaca cash. A sell closes the Alpaca position. The desk holds one position and does not sell short.
-4. The order row shows Alpaca's status. A fill price is Alpaca's price, not the bar close.
-5. **Send each new bar** waits for a newer bar. Leave the window open. It does not replay old bars.
+1. Load a market tape. A sample tape will not send. When Alpaca is connected, the chart uses Alpaca IEX bars. Yahoo is only the stand-in before that connection.
+2. Press **Recalculate** if the button is marked. The armed book is the one just calculated, including the unlock limits.
+3. **Send this bar** sends the last closed bar once. **Turn orders on** keeps checking, about every 20 seconds, until you turn orders off. Closing the page does not stop that. Sleep, quit, or a restart does. A new process starts with orders off.
+4. Before each send it reads the clock, the account, the open orders, and the position. A working order means it sends nothing. The account position wins: buy only when flat, sell only when long. One position. Whole shares. A buy spends up to dollars-per-buy, or all of the cash if that figure is 0, and never more than Alpaca cash.
+5. The order is a limit around the closed bar. Slippage, in cents, is how far through that close the limit may go. The default is 15. The same bar is not sent twice.
+6. Nothing is sent while Alpaca says the market is closed, unless you check **Allow an order while the market is closed**.
+7. If equity is down by the daily-loss percent from the equity first seen that session, a long position is sold and orders turn off. The default is 3%. Arm them again only if you mean to.
+8. A solid triangle is an Alpaca fill. An open triangle is a valid signal for the real position that was not traded. Missed signals are not sent later. Sell hold and the last-fill step follow those fills, not the play-money replay.
+9. Each decision, and the Alpaca reply, is appended to `.desk/orders.log` on this computer.
 
-The chart marks, the blotter, and the equity curve follow whichever Alpaca account is connected. A paper key shows the paper account. A live key shows the live account. The chart opens at the first Alpaca fill on the loaded tape. A solid triangle is a fill. An open triangle is a valid signal the desk did not trade. The next order uses the account's position: buy only when it is flat, sell only when it is long. Missed signals are not sent later. Play money stays on its own tab.
+The chart marks, the blotter, and the equity curve follow whichever Alpaca account is connected. A paper key shows the paper account. A live key shows the live account. The chart opens at the first Alpaca fill on the loaded tape. Play money stays on its own tab.
 
-If the market is closed, Alpaca can accept the order and fill it at the next open. The row stays on the panel until then.
-
-Market bars are requested from Yahoo Finance for the regular session only (no pre-market, no after-hours). If that request fails, the desk loads a sample tape and says so. Sample numbers are not the market.
+Market bars before Alpaca is connected come from Yahoo Finance for the regular session only (no pre-market, no after-hours). If that request fails, the desk loads a sample tape and says so. Sample numbers are not the market.
 
 | Bar size | History requested |
 | --- | --- |

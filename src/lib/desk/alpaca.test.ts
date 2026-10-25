@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { barIndexAt, clientOrderId, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
+import { barIndexAt, clientOrderId, dailyStopHit, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, openingPosition, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
 
 const base = {
   paper: true,
@@ -64,6 +64,21 @@ test("a flat account buys the next valid signal and does not invent the ones it 
     4,
   );
   assert.deepEqual(missed, [{ index: 1, side: "sell" }]);
+});
+
+test("a closed market and a daily loss stop refuse a naked order", () => {
+  const closed = planOrder({ ...base, marketOpen: false });
+  assert.equal(closed.ok, false);
+  const limited = planOrder({ ...base, slippageCents: 15 });
+  assert.equal(limited.ok, true);
+  if (limited.ok) {
+    assert.equal(limited.body.type, "limit");
+    assert.equal(limited.body.limit_price, "40.15");
+  }
+  assert.equal(dailyStopHit(97, 100, 3), true);
+  assert.equal(dailyStopHit(98, 100, 3), false);
+  assert.deepEqual(openingPosition([], 4, 12), { qty: 4, price: 12 });
+  assert.deepEqual(openingPosition([{ side: "buy", qty: 4 }], 4, 12), { qty: 0, price: 0 });
 });
 
 test("account history and fills land on the bars of this tape", () => {

@@ -6,7 +6,8 @@ import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
 import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
-import { barIndexAt, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import { barIndexAt, closedBarIndex, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, openingPosition, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import { alpacaBars } from "@/lib/desk/session-api";
 import type { AlpacaLook } from "@/lib/desk/alpaca-api";
 import {
   DELAYS,
@@ -14,6 +15,7 @@ import {
   INTERVALS,
   STRATEGY_ORDER,
   asJoin,
+  barDuration,
   clauseProblem,
   cleanMatrix,
   dedupeMembers,
@@ -905,6 +907,7 @@ function acceptUnlock(value: unknown): UnlockFile | null {
 
 export function DeskApp() {
   const loadTape = useServerFn(fetchTape);
+  const loadBars = useServerFn(alpacaBars);
   const loadRef = useRef(loadTape);
   loadRef.current = loadTape;
   const [ready, setReady] = useState(false);
@@ -1029,7 +1032,8 @@ export function DeskApp() {
     setLoading(true);
     loadRef.current({ data: { symbol, interval } })
       .then((next) => {
-        if (!cancel) setTape(next);
+        if (cancel) return;
+        setTape((current) => (current?.source === "alpaca" && current.symbol === next.symbol && current.interval === next.interval ? current : next));
       })
       .catch(() => {
         if (cancel) return;
@@ -1048,6 +1052,19 @@ export function DeskApp() {
       cancel = true;
     };
   }, [ready, symbol, interval, reload]);
+
+  useEffect(() => {
+    if (accountKind === "off") return;
+    let cancel = false;
+    loadBars({ data: { symbol, interval } })
+      .then((next) => {
+        if (!cancel && next.ok) setTape(next.tape);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancel = true;
+    };
+  }, [accountKind, symbol, interval, reload, loadBars]);
 
   const liveParams = useMemo(() => {
     if (EDITION === "master") return runParams;
@@ -1103,15 +1120,31 @@ export function DeskApp() {
     );
   }, [tape, result, accountView]);
   const shownFills = showingAccount ? accountFills : (result?.fills ?? []);
-  const accountSignal =
-    accountView && last
-      ? nextAccountSignal(accountView.positionQty, Boolean(last.signalBuy), Boolean(last.signalSell), last.sellHold)
-      : (last?.action ?? "none");
+  const ledgerBook = useMemo(() => {
+    if (!tape || !accountView || tape.source === "sample") return null;
+    const times = tape.bars.map((bar) => bar.t);
+    const fills = accountView.fills.flatMap((fill) => {
+      const index = barIndexAt(times, fill.time);
+      if (index < 0) return [];
+      return [{ index, side: fill.side, price: fill.price, qty: fill.qty }];
+    });
+    const opening = openingPosition(accountView.fills, accountView.positionQty, accountView.avgEntry ?? 0);
+    return simulate(tape.bars, tape.interval, liveParams, account, { openingQty: opening.qty, openingPrice: opening.price, fills });
+  }, [tape, accountView, liveParams, account]);
+  const closedIndex =
+    tape && tape.source !== "sample" ? closedBarIndex(tape.bars.map((bar) => bar.t), barDuration(tape.interval), Date.now()) : -1;
+  const signalRow = ledgerBook && closedIndex >= 0 ? ledgerBook.trace[closedIndex] : null;
+  const accountSignal = accountView
+    ? signalRow
+      ? nextAccountSignal(accountView.positionQty, signalRow.signalBuy === true, signalRow.signalSell === true, signalRow.sellHold === true)
+      : "none"
+    : (last?.action ?? "none");
   const missed = useMemo(() => {
-    if (!showingAccount || !result || !accountView) return undefined;
-    const rows = result.trace.map((row) => ({ signalBuy: row.signalBuy, signalSell: row.signalSell, sellHold: row.sellHold }));
+    if (!showingAccount || !ledgerBook || !accountView) return undefined;
+    const rows = ledgerBook.trace.map((row) => ({ signalBuy: row.signalBuy, signalSell: row.signalSell, sellHold: row.sellHold }));
     return missedSignals(rows, accountFills, accountView.positionQty);
-  }, [showingAccount, result, accountView, accountFills]);
+  }, [showingAccount, ledgerBook, accountView, accountFills]);
+  const readBook = showingAccount && ledgerBook ? ledgerBook : result;
   const since = accountView?.fills[0]?.time ?? accountView?.history[0]?.time ?? 0;
 
   useEffect(() => {
@@ -1125,8 +1158,8 @@ export function DeskApp() {
     setView({ start, end: tape.bars.length });
   }, [accountKind, tapeKey, since, tape]);
   const explain =
-    result && tape && selected != null && result.trace[selected]
-      ? explainAt(selected, tape.bars, result.indicators, liveParams, tape.interval, result.trace[selected])
+    readBook && tape && selected != null && readBook.trace[selected]
+      ? explainAt(selected, tape.bars, readBook.indicators, liveParams, tape.interval, readBook.trace[selected])
       : null;
 
   function submitSymbol(event: FormEvent) {
@@ -1361,8 +1394,8 @@ export function DeskApp() {
               <Switch.Thumb className="desk-thumb absolute top-1 left-0 block size-6 translate-x-1 rounded-full bg-paper" />
             </Switch.Root>
             <p className="max-w-xs text-sm text-pretty text-muted">
-              <span className="font-medium text-paper">Live switch off. </span>
-              Paper orders are sent from the Alpaca panel. A live order also needs the live key.
+              <span className="font-medium text-paper">Orders stay off. </span>
+              Arm them on the Alpaca panel. A restart turns them off. A live order also needs the live key.
             </p>
           </div>
         </div>
@@ -2200,30 +2233,30 @@ export function DeskApp() {
         )}
         <AlpacaPanel
           symbol={symbol}
-          dollars={account.dollarsPerBuy}
-          price={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.c ?? 0) : 0}
-          barTime={tape && result && result.rangeEnd > result.rangeStart ? (tape.bars[result.rangeEnd - 1]?.t ?? 0) : 0}
           signal={accountSignal}
           sample={tape?.source === "sample"}
           from={tape?.bars[0]?.t ?? 0}
           to={tape?.bars[tape.bars.length - 1]?.t ?? 0}
           onAccount={setAccountView}
           onRefresh={() => setReload((value) => value + 1)}
+          params={liveParams}
+          account={runAccount}
+          interval={tape?.interval ?? interval}
         />
         {!tape || !result ? (
           <div className="desk-panel flex h-80 items-center px-4 text-sm text-muted">Pulling the {symbol} tape…</div>
         ) : (
           <ChartPane
             bars={tape.bars}
-            ind={result.indicators}
+            ind={(readBook ?? result).indicators}
             fills={showingAccount ? accountFills : result.fills}
             missed={showingAccount ? missed : undefined}
             params={liveParams}
-            holdOn={result.holdOn}
-            recover={result.recover}
-            buyAt={result.buyAt}
-            sellAt={result.sellAt}
-            logic={result.logic}
+            holdOn={(readBook ?? result).holdOn}
+            recover={(readBook ?? result).recover}
+            buyAt={(readBook ?? result).buyAt}
+            sellAt={(readBook ?? result).sellAt}
+            logic={(readBook ?? result).logic}
             view={view.end > view.start ? view : { start: 0, end: tape.bars.length }}
             onView={(next, manual) => {
               setView(next);

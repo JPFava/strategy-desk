@@ -1,6 +1,6 @@
 # Strategy Desk
 
-Version 1.6.2. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. A solid triangle is a fill. An open triangle is a valid signal that was not traded. The next order follows the account position.
+Version 1.7.0. One desk. When Alpaca answers, the curve, blotter, and chart marks follow that account. A solid triangle is a fill. An open triangle is a valid signal that was not traded. Orders are sent by the desk process on this computer, as a limit for the last closed bar, and only while that process is armed. A restart turns orders off. Do not leave a live account armed until paper has matched Alpaca across several sessions.
 
 This is the tester copy. It fires no strategy until you load the unlock file you were sent. That file is not in this repository. Brokerage keys stay on your computer.
 
@@ -33,7 +33,7 @@ The email and password on the first screen belong to this desk, not to Alpaca.
 3. On the desk, choose **Alpaca**, leave **Paper account** checked, and paste them into **API key** and **API secret**.
 4. Press **Create this desk**.
 5. Under **Strategies**, load the unlock file you were sent. Until you do, no strategy fires.
-6. On the Alpaca panel, press **Send this signal** to send the latest bar once. **Send each new bar** waits for a newer bar and needs the window left open. A fill is Alpaca's price, not the play-money close. If the market is closed, the order can wait until the next open.
+6. On the Alpaca panel, **Send this bar** sends the last closed bar once. **Turn orders on** lets the desk process keep checking until you turn it off, or the computer sleeps or restarts. The order is a limit. A fill is Alpaca's price. Nothing is sent while Alpaca says the market is closed, unless you allow that. Play money stays on its own tab.
 
 Do not email the secret, and do not put it in a saved book.
 
@@ -45,6 +45,6 @@ Live orders are real money. The desk you install is the same one. What changes i
 2. On the desk, press **Change brokerage**.
 3. Choose **Alpaca**, uncheck **Paper account**, paste the live key and secret, and press **Save brokerage**.
 4. On the Alpaca panel, load the live key file you were sent. Without that file the panel will not send.
-5. Press **Send this signal** only when you mean a real order.
+5. Press **Send this bar** or **Turn orders on** only when you mean a real order. A restart turns orders off.
 
 Check **Paper account** and paste the paper pair again to go back. Remove the live key when you are done with it.

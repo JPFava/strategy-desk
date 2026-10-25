@@ -945,3 +945,44 @@ test("starter book matches the SOXL 5-minute baseline gates", () => {
   assert.equal(cash.delay, "1d");
   assert.equal(cash.useConfirmedSaleProceeds, true);
 });
+
+test("an Alpaca fill sets the entry, and a strategy buy does not invent a position", () => {
+  const t0 = atEastern(2026, 3, 2, 10, 0);
+  const bars = [0, 1, 2].map((i) => bar(t0 + i * 60_000, 10));
+  const wants: { buy: StrategyId[]; sell: StrategyId[] }[] = [
+    { buy: ["mfi"], sell: [] },
+    { buy: ["mfi"], sell: [] },
+    { buy: [], sell: ["mfi"] },
+  ];
+  const book = applySignals(bars, wants, account({ startingCash: 1_000 }), { ...defaultParams().drop, sellOn: false }, undefined, { ...defaultParams().step, sellOn: true, aboveBuy: 1 }, null, {
+    openingQty: 0,
+    openingPrice: 0,
+    fills: [{ index: 0, side: "buy", price: 9.5, qty: 3 }],
+  });
+  assert.equal(book.fills[0]?.price, 9.5);
+  assert.equal(book.trace[1].lastBuy, 9.5);
+  assert.equal(book.trace[1].action, "none");
+  assert.equal(book.trace[1].book, "long");
+  assert.equal(book.trace[2].action, "none");
+  assert.equal(book.trace[2].book, "long");
+});
+
+test("an open Alpaca position stays long before the first fill on this tape", () => {
+  const t0 = atEastern(2026, 3, 2, 10, 0);
+  const bars = [0, 1].map((i) => bar(t0 + i * 60_000, 10));
+  const wants: { buy: StrategyId[]; sell: StrategyId[] }[] = [
+    { buy: [], sell: [] },
+    { buy: [], sell: ["mfi"] },
+  ];
+  const book = applySignals(bars, wants, account({ startingCash: 1_000 }), { ...defaultParams().drop, sellOn: false }, undefined, null, null, {
+    openingQty: 4,
+    openingPrice: 8,
+    fills: [],
+  });
+  assert.equal(book.trace[0].book, "long");
+  assert.equal(book.trace[0].shares, 4);
+  assert.equal(book.trace[0].lastBuy, 8);
+  assert.equal(book.trace[0].action, "none");
+  assert.equal(book.trace[1].book, "long");
+  assert.equal(book.trace[1].lastBuy, 8);
+});

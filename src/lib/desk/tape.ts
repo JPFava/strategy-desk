@@ -5,7 +5,7 @@ import { type Bar, type Interval, INTERVALS } from "./model";
 export type Tape = {
   symbol: string;
   interval: Interval;
-  source: "market" | "sample";
+  source: "market" | "sample" | "alpaca";
   notice: string | null;
   bars: Bar[];
 };

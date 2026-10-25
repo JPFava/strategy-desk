@@ -1,6 +1,6 @@
 # Opening a brokerage account for this desk
 
-Strategy Desk 1.6.2. This page is the signup on your own computer. It does not open a brokerage account. Paper orders are sent only when you press send on the Alpaca panel. Live orders also need the live key file.
+Strategy Desk 1.7.0. This page is the signup on your own computer. It does not open a brokerage account. Alpaca paper orders are sent by the desk process on this computer when you send one bar or turn orders on. Live orders also need the live key file. A restart turns orders off.
 
 You open the account at the firm. You create that firm's keys there. You paste only the keys this desk asks for. The firm's own password stays at the firm. The desk password only unlocks this copy.
 
@@ -20,15 +20,15 @@ A second person installs their own copy and does the same thing. The two desks d
 
 The blotter fills at the close of the signal bar. A whole number of shares. One long position. Cash, not margin. The play-money fee boxes are whatever you saved. The Actual book has those fees at zero.
 
-A live order, once this desk is armed in a later version, would differ in these ways.
+A live order differs from play money in these ways.
 
-- The fill is the firm's price when the order arrives, not the close the signal used. On a liquid ETF that is often a penny or two a share. On a wide quote it is more.
-- The desk sizes the order from its own cash figure. The firm sizes buying power from settled cash. If those two numbers differ, the firm can reject the order or fill a different share count.
-- The desk assumes the whole order fills. A live order can fill in part, or not at all, if the market is closed, the symbol is halted, or settled cash is short.
-- This book is long-only and cash. It does not use margin, shorts, or fractional shares. A margin account at the firm can add the pattern-day-trader rule: under $25,000, four day trades in five business days can lock the account. A cash account is limited by settled cash instead. Open a cash account unless you mean to use margin.
-- US stock settlement is the next business day. The Actual book waits one day and uses confirmed sale proceeds. That is the right shape. The firm's settled-cash number can still disagree with the blotter.
-- A broker paper account is a second simulation. It will not reprint this blotter. Use play money to judge the book. Use the firm's paper account only to prove the key works.
-- Saving a key does not place a trade. Nothing in this version calls the firm.
+- The fill is the firm's price, not the close the signal used. The desk sends a limit a set number of cents through that close. On a liquid ETF the fill is often a penny or two. On a wide quote the limit can miss.
+- The desk sizes a buy from dollars-per-buy, or from all cash if that figure is 0, and never above the cash Alpaca reports. Whole shares. One long position. No short, no fraction, no second position.
+- A working order blocks a new one. The account position wins over the play-money book. A missed signal is not sent later.
+- This book is long-only and cash. It does not use margin. A margin account at the firm can add the pattern-day-trader rule: under $25,000, four day trades in five business days can lock the account. A cash account is limited by settled cash instead. Open a cash account unless you mean to use margin.
+- US stock settlement is the next business day. Play money can wait one day for sale proceeds. Alpaca's settled-cash number is the one that funds a buy.
+- A broker paper account is a second set of fills. It will not reprint the play-money blotter. Use play money to judge the book. Use the paper account to prove the orders.
+- Saving a key does not place a trade. Turning orders on does. Sleep or a restart stops the process, and the next start leaves orders off.
 
 ## Alpaca
 
@@ -38,11 +38,11 @@ A live order, once this desk is armed in a later version, would differ in these 
 
 **Keys.** In the Alpaca dashboard, open API keys for the account you mean. Copy the key into **API key** and the secret into **API secret**. The secret is shown once. If you lose it, generate a new pair and paste that. Do not paste the key into email or into a saved-book JSON. Saved books do not contain these keys.
 
-**Login limits.** The key does not expire on a seven-day clock. It works while the account is open and the key has not been revoked. Paper and live are different hosts. This desk calls the host that matches the Paper account box. It sends a market order only from the Alpaca panel, and only for the latest signal.
+**Login limits.** The key does not expire on a seven-day clock. It works while the account is open and the key has not been revoked. Paper and live are different hosts. This desk calls the host that matches the Paper account box. It sends a day limit from the desk process, for the last closed bar, and only while orders are on or you send that bar. It does not send while the market is closed unless you allow that.
 
 **Minimums and trade count.** No minimum deposit. No required number of trades. The free market-data feed is IEX only, 200 requests a minute, 30 symbols. The full US tape is optional at $99 a month. This desk builds its own bars, so you do not need that feed to study a book. A later live order would still need a quote at send time. The Elite Smart Router is optional. It is not required for this desk. A business deposit, on Alpaca's own page, is what unlocks that router. It changes the commission. It is not an account minimum.
 
-**Live versus the blotter.** Retail market orders go to a wholesaler. Alpaca is paid from the spread, up to 12% of the spread and not more than 5 cents a share, on a marketable order in the regular session. You do not see that as a commission. You see it as a fill that is not the bar close.
+**Live versus the blotter.** The limit can be marketable. Alpaca is paid from the spread, up to 12% of the spread and not more than 5 cents a share, on a marketable order in the regular session. You do not see that as a commission. You see it as a fill that is not the bar close. A limit that is not marketable can stay open or expire. The blotter shows fills, not signals that never traded.
 
 ## Charles Schwab
 

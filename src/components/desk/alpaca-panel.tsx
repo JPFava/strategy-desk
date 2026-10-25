@@ -1,48 +1,53 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { alpacaLook, alpacaSend, type AlpacaLook, type AlpacaOrderView } from "@/lib/desk/alpaca-api";
+import { alpacaLook, type AlpacaLook } from "@/lib/desk/alpaca-api";
+import { sessionArm, sessionDisarm, sessionOnce, sessionRead, type SessionPublic } from "@/lib/desk/session-api";
 import { readLiveArm, type LiveArm } from "@/lib/desk/alpaca";
-import { formatMoney, formatPx, formatQty } from "@/lib/desk/model";
+import { formatMoney, formatPx, formatQty, type AccountSettings, type DeskParams, type Interval } from "@/lib/desk/model";
 
 const LIVE_KEY = "strategy-desk-live-v1";
 
 export function AlpacaPanel({
   symbol,
-  dollars,
-  price,
-  barTime,
   signal,
   sample,
   from,
   to,
   onAccount,
   onRefresh,
+  params,
+  account,
+  interval,
 }: {
   symbol: string;
-  dollars: number;
-  price: number;
-  barTime: number;
   signal: "buy" | "sell" | "none";
   sample: boolean;
   from: number;
   to: number;
   onAccount: (view: AlpacaLook | null) => void;
   onRefresh: () => void;
+  params: DeskParams;
+  account: AccountSettings;
+  interval: Interval;
 }) {
   const look = useServerFn(alpacaLook);
-  const send = useServerFn(alpacaSend);
+  const arm = useServerFn(sessionArm);
+  const once = useServerFn(sessionOnce);
+  const disarm = useServerFn(sessionDisarm);
+  const read = useServerFn(sessionRead);
   const lookRef = useRef(look);
-  const sendRef = useRef(send);
+  const readRef = useRef(read);
   lookRef.current = look;
-  sendRef.current = send;
+  readRef.current = read;
   const [view, setView] = useState<AlpacaLook | null>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const [keep, setKeep] = useState(false);
+  const [session, setSession] = useState<SessionPublic | null>(null);
+  const [slippageCents, setSlippageCents] = useState(15);
+  const [dailyLossPct, setDailyLossPct] = useState(3);
+  const [allowClosed, setAllowClosed] = useState(false);
   const [liveArm, setLiveArm] = useState<LiveArm | null>(null);
-  const sent = useRef(new Set<string>());
-  const floor = useRef(0);
   const refreshRef = useRef(onRefresh);
   const accountRef = useRef(onAccount);
   const rangeRef = useRef({ from, to });
@@ -99,46 +104,67 @@ export function AlpacaPanel({
   }, [symbol, from, to]);
 
   useEffect(() => {
-    if (!keep) return;
-    const timer = window.setInterval(() => refreshRef.current(), 60_000);
-    return () => window.clearInterval(timer);
-  }, [keep]);
+    let cancel = false;
+    const pull = () => {
+      readRef
+        .current()
+        .then((next) => {
+          if (!cancel) setSession(next);
+        })
+        .catch(() => undefined);
+    };
+    pull();
+    const timer = window.setInterval(pull, 5_000);
+    return () => {
+      cancel = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
-  async function submit(side: "buy" | "sell", time: number) {
-    const key = `${symbol}|${side}|${time}`;
-    if (sent.current.has(key)) return;
-    sent.current.add(key);
+  function job() {
+    return { symbol, interval, params, account, slippageCents, dailyLossPct, allowClosed, liveArm };
+  }
+
+  async function onceSend() {
     setBusy(true);
     setNote("");
     try {
-      const result = await sendRef.current({
-        data: { symbol, side, dollars, price, barTime: time, sample, liveArm },
-      });
-      if (!result.ok) {
-        sent.current.delete(key);
-        setNote(result.error);
-        return;
+      const result = await once({ data: job() });
+      if (!result.ok) setNote(result.error);
+      else {
+        setSession(result.session);
+        setNote(result.session.decision);
       }
-      setNote(orderNote(result.order, price));
-      const next = await lookRef.current({ data: { symbol, from: rangeRef.current.from, to: rangeRef.current.to } });
-      if (next.ok) {
-        setView(next);
-        accountRef.current(next);
-      }
+      refreshRef.current();
     } catch {
-      sent.current.delete(key);
       setNote("The desk could not reach Alpaca.");
     } finally {
       setBusy(false);
     }
   }
 
-  useEffect(() => {
-    if (!keep || signal === "none" || !(barTime > floor.current)) return;
-    void submit(signal, barTime);
-    // submit is recreated each render; the sent set stops a second order for this bar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keep, signal, barTime, symbol]);
+  async function toggleArm() {
+    setBusy(true);
+    setNote("");
+    try {
+      if (session?.armed) {
+        const result = await disarm();
+        setSession(result.session);
+        setNote(result.session.decision);
+      } else {
+        const result = await arm({ data: job() });
+        if (!result.ok) setNote(result.error);
+        else {
+          setSession(result.session);
+          setNote(result.session.decision);
+        }
+      }
+    } catch {
+      setNote("The desk could not reach Alpaca.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const liveBlocked = view != null && !view.paper && !liveArm;
   return (
@@ -148,7 +174,7 @@ export function AlpacaPanel({
         <p className="text-xs text-muted">{view ? (view.paper ? "Paper account" : "Live account") : "Not connected"}</p>
       </div>
       <p className="mt-2 text-sm text-muted text-pretty">
-        Play money stays on its own tab. This panel sends one order for the latest bar, and only the side the Alpaca position allows: a buy when the account is flat, a sell when it is long. It does not replace a signal that passed while the desk was off. An open triangle on the chart is that missed signal. A solid triangle is a fill.
+        This page only displays the account and arms the desk. The process on this computer sends the order, and only after it reads the position, the open orders, and the clock. A restart leaves orders off. It sends a limit for the last closed bar: a buy when the account is flat, a sell when it is long. It does not replace a signal that passed while orders were off. Sleep stops it. An open triangle is a signal that was not traded. A solid triangle is a fill.
       </p>
       {error && <p className="mt-2 text-sm text-sell">{error}</p>}
       {view && (
@@ -174,38 +200,40 @@ export function AlpacaPanel({
             <dd>{view.positionQty > 0 ? `Long ${formatQty(view.positionQty)}` : view.positionQty < 0 ? `Short ${formatQty(Math.abs(view.positionQty))}` : "Flat"}</dd>
           </div>
           <div>
-            <dt className="text-xs text-muted">This bar</dt>
+            <dt className="text-xs text-muted">Closed bar</dt>
             <dd>{signal === "none" ? "No order" : signal === "buy" ? "Buy" : "Sell"}</dd>
           </div>
         </dl>
       )}
       {!view?.marketOpen && view && (
-        <p className="mt-2 text-sm text-muted text-pretty">The market is closed. Alpaca can accept the order and fill it at the next open. The row below shows that status.</p>
+        <p className="mt-2 text-sm text-muted text-pretty">The market is closed. The desk will not send unless you allow a closed-market order. A limit order can still fill at the next open.</p>
       )}
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="text-xs text-muted">
+          Slippage, cents
+          <input className="desk-input mt-1" type="number" min={1} max={500} value={slippageCents} onChange={(event) => setSlippageCents(Number(event.target.value))} />
+        </label>
+        <label className="text-xs text-muted">
+          Daily loss stop, %
+          <input className="desk-input mt-1" type="number" min={0.5} max={50} step={0.5} value={dailyLossPct} onChange={(event) => setDailyLossPct(Number(event.target.value))} />
+        </label>
+      </div>
+      <label className="mt-3 flex min-h-11 items-center gap-3 text-sm">
+        <input type="checkbox" checked={allowClosed} onChange={(event) => setAllowClosed(event.target.checked)} />
+        Allow an order while the market is closed
+      </label>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="desk-chip"
-          data-on="true"
-          disabled={busy || signal === "none" || sample || liveBlocked}
-          onClick={() => void submit(signal === "sell" ? "sell" : "buy", barTime)}
-        >
-          {busy ? "Sending" : "Send this signal"}
+        <button type="button" className="desk-chip" data-on="true" disabled={busy || sample || liveBlocked} onClick={() => void onceSend()}>
+          {busy ? "Sending" : "Send this bar"}
         </button>
-        <button
-          type="button"
-          className="desk-chip"
-          data-on={keep}
-          onClick={() => {
-            floor.current = barTime;
-            setKeep((value) => !value);
-          }}
-        >
-          {keep ? "Sending each new bar" : "Send each new bar"}
+        <button type="button" className="desk-chip" data-on={session?.armed === true} disabled={busy || sample || liveBlocked} onClick={() => void toggleArm()}>
+          {session?.armed ? "Turn orders off" : "Turn orders on"}
         </button>
       </div>
+      {session?.decision && <p className="mt-2 text-sm">{session.decision}</p>}
       {sample && <p className="mt-2 text-sm text-muted">This tape is a sample. Load a market tape before sending an order.</p>}
       {liveBlocked && <p className="mt-2 text-sm text-bronze">These are live keys. Load the live key file before an order can be sent.</p>}
+      {session?.stopped && <p className="mt-2 text-sm text-sell">The daily loss stop turned orders off. Arm them again only if you mean to.</p>}
       {note && <p className="mt-2 text-sm">{note}</p>}
       <label className="mt-3 block text-xs text-muted">
         Live key
@@ -265,11 +293,4 @@ export function AlpacaPanel({
       )}
     </section>
   );
-}
-
-function orderNote(order: AlpacaOrderView, close: number): string {
-  if (order.filledAvgPrice != null && order.filledQty > 0) {
-    return `Filled ${order.filledQty} at ${formatPx(order.filledAvgPrice)}. The signal close was ${formatPx(close)}.`;
-  }
-  return `Alpaca has the order as ${order.status.replaceAll("_", " ")}. A fill shows here when Alpaca reports one.`;
 }

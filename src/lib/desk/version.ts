@@ -1,5 +1,5 @@
 /** Strategy Desk product version. Keep this identical to package.json "version". */
-export const PRODUCT_VERSION = "1.6.2";
+export const PRODUCT_VERSION = "1.7.0";
 
 /** Served from public/strategy-desk-guide.pdf. */
 export const GUIDE_PATH = "/strategy-desk-guide.pdf";

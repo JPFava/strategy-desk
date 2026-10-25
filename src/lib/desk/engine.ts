@@ -1587,6 +1587,12 @@ export type BookResult = {
   rangeEnd: number;
 };
 
+export type BookLedger = {
+  openingQty: number;
+  openingPrice: number;
+  fills: { index: number; side: "buy" | "sell"; price: number; qty: number }[];
+};
+
 export function applySignals(
   bars: Bar[],
   wants: SideWant[],
@@ -1595,6 +1601,7 @@ export function applySignals(
   sessionHigh?: number[],
   stepIn?: DeskParams["step"] | null,
   matrixIn?: { buy: SideMatrix; sell: SideMatrix } | null,
+  ledger?: BookLedger | null,
 ): BookResult {
   const tuned = tune(defaultParams(), accountIn);
   const account = tuned.account;
@@ -1633,6 +1640,18 @@ export function applySignals(
   let prevSession = "";
   let lastBuy: number | null = null;
   let lastSell: number | null = null;
+  const ledgerAt = new Map<number, BookLedger["fills"]>();
+  if (ledger) {
+    for (const fill of ledger.fills) {
+      const list = ledgerAt.get(fill.index) ?? [];
+      list.push(fill);
+      ledgerAt.set(fill.index, list);
+    }
+    if (ledger.openingQty > 0 && ledger.openingPrice > 0) {
+      shares = Math.floor(ledger.openingQty);
+      lastBuy = ledger.openingPrice;
+    }
+  }
 
   const trace: Trace[] = [];
   const fills: Fill[] = [];
@@ -1763,6 +1782,7 @@ export function applySignals(
     let holdCancelled = false;
     let fee = 0;
     let fillShares = 0;
+    let fillPrice = bar.c;
 
     const pushSkip = (id: StrategyId, side: "buy" | "sell", reason: string) => {
       skippedHere.push({ id, side, reason });
@@ -1770,7 +1790,28 @@ export function applySignals(
       skippedByReason[reason] = (skippedByReason[reason] ?? 0) + 1;
     };
 
-    if (book === "flat") {
+    if (ledger) {
+      const here = ledgerAt.get(i) ?? [];
+      const buyFill = here.find((fill) => fill.side === "buy");
+      const sellFill = here.find((fill) => fill.side === "sell");
+      if (buyFill && buyFill.price > 0) {
+        shares = Math.max(1, Math.floor(buyFill.qty));
+        fillShares = shares;
+        fillPrice = buyFill.price;
+        action = "buy";
+        fired = buyers.slice();
+        if (hold) holdCancelled = true;
+        hold = false;
+        disarmed = true;
+      } else if (sellFill && sellFill.price > 0 && shares > 0) {
+        fillShares = shares;
+        fillPrice = sellFill.price;
+        shares = 0;
+        action = "sell";
+        fired = sellers.slice();
+        roundTrips += 1;
+      }
+    } else if (book === "flat") {
       for (const id of sellers) pushSkip(id, "sell", SKIP.flat);
       if (buyers.length) {
         const power = Math.max(0, cash);
@@ -1822,7 +1863,7 @@ export function applySignals(
         side: action,
         strategies: fired,
         shares: fillShares,
-        price: bar.c,
+        price: fillPrice,
         close: bar.c,
         fee,
         equityAfter,
@@ -1867,13 +1908,13 @@ export function applySignals(
       equityAfter,
       sharesAfter: shares,
     });
-    if (action === "buy") lastBuy = bar.c;
-    else if (action === "sell") lastSell = bar.c;
+    if (action === "buy") lastBuy = fillPrice;
+    else if (action === "sell") lastSell = fillPrice;
   }
 
   // Fix shares recorded on the trace for the pre-trade position.
   // The helper above is awkward for sells; recompute cleanly.
-  let running = 0;
+  let running = ledger && ledger.openingQty > 0 ? Math.floor(ledger.openingQty) : 0;
   for (let i = 0; i < n; i++) {
     trace[i].shares = running;
     trace[i].book = running > 0 ? "long" : "flat";
@@ -2086,11 +2127,12 @@ export function simulate(
   interval: Interval,
   paramsIn: DeskParams,
   accountIn: AccountSettings,
+  ledger?: BookLedger | null,
 ): SimResult {
   const { params, account } = tune(paramsIn, accountIn);
   const indicators = computeIndicators(bars, params, interval);
   const wants: SideWant[] = bars.map((_, i) => wantsFromFacts(i, bars, indicators, params, interval));
-  const book = applySignals(bars, wants, account, params.drop, indicators.sessionHigh, params.step, params.matrix);
+  const book = applySignals(bars, wants, account, params.drop, indicators.sessionHigh, params.step, params.matrix, ledger);
   const logic = buildLogic(bars, indicators, params, interval, book.trace);
   return { indicators, ...book, logic };
 }
