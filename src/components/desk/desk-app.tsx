@@ -1057,13 +1057,38 @@ export function DeskApp() {
   useEffect(() => {
     if (accountKind === "off") return;
     let cancel = false;
-    loadBars({ data: { symbol, interval } })
-      .then((next) => {
-        if (!cancel && next.ok) setTape(next.tape);
-      })
-      .catch(() => undefined);
+    const pull = () => {
+      loadBars({ data: { symbol, interval } })
+        .then((next) => {
+          if (cancel || !next.ok) return;
+          setTape((current) => {
+            const incoming = next.tape;
+            const last = current?.bars.at(-1);
+            const fresh = incoming.bars.at(-1);
+            if (
+              current &&
+              current.symbol === incoming.symbol &&
+              current.interval === incoming.interval &&
+              current.bars.length === incoming.bars.length &&
+              last?.t === fresh?.t &&
+              last?.o === fresh?.o &&
+              last?.h === fresh?.h &&
+              last?.l === fresh?.l &&
+              last?.c === fresh?.c &&
+              last?.v === fresh?.v
+            ) {
+              return current;
+            }
+            return incoming;
+          });
+        })
+        .catch(() => undefined);
+    };
+    pull();
+    const timer = window.setInterval(pull, 20_000);
     return () => {
       cancel = true;
+      window.clearInterval(timer);
     };
   }, [accountKind, symbol, interval, reload, loadBars]);
 
@@ -1078,13 +1103,30 @@ export function DeskApp() {
   );
   const dirty = canonical(params) !== canonical(runParams) || canonical(account) !== canonical(runAccount);
 
-  const tapeKey = tape ? `${tape.symbol}|${tape.interval}|${tape.source}|${tape.bars.length}|${tape.bars[0]?.t ?? 0}` : "";
+  const tapeKey = tape ? `${tape.symbol}|${tape.interval}|${tape.source}|${tape.bars[0]?.t ?? 0}` : "";
   const [viewTape, setViewTape] = useState("");
+  const barCount = tape?.bars.length ?? 0;
+  const followed = useRef(0);
   if (tape && tapeKey !== viewTape) {
     setViewTape(tapeKey);
+    followed.current = barCount;
     setWindowId("1D");
     setView(viewForWindow(tape.bars.map((bar) => sessionKey(bar.t)), "1D"));
     setSelected(null);
+  }
+  if (tape && tape.source !== "sample" && barCount > followed.current && followed.current > 0) {
+    const previous = followed.current;
+    followed.current = barCount;
+    setView((current) => {
+      if (current.end < previous) return current;
+      if (windowId) return viewForWindow(tape.bars.map((bar) => sessionKey(bar.t)), windowId);
+      return { start: current.start, end: barCount };
+    });
+  } else if (barCount < followed.current) {
+    followed.current = barCount;
+    setView((current) => ({ start: Math.min(current.start, barCount), end: Math.min(current.end, barCount) }));
+  } else if (barCount !== followed.current) {
+    followed.current = barCount;
   }
 
   const playStats: Stats | null = result?.stats ?? null;
