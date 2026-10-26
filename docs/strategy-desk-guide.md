@@ -2,7 +2,7 @@
 
 **Version 1.7.1.** Installation and user's guide. The same document ships with the app as a PDF. On the desk, the version next to the title opens it. **How the strategies work**, in the line under the title, is the companion: each strategy, and how they combine. **Saved books**, at the top of the strategy list, stores a named copy of the strategies and the play-money account in this browser. Recall loads that copy and recalculates. The symbol is left alone. Saving the same name replaces that book.
 
-Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can arm a process on this computer to send a limit for the last closed bar. Paper orders use the paper key. Live orders need a separate live key and are real money. The header switch stays off. Do not leave live orders on until a paper account has matched Alpaca across several sessions, including a sleep and a restart.
+Strategy Desk is a research book. It replays one price tape through one cash account and records play-money fills. The Alpaca panel can arm a process on this computer to send a limit for the last closed bar. Paper orders use the paper key. Live orders need a separate live key and are real money. Do not leave live orders on until a paper account has matched Alpaca across several sessions, including a sleep and a restart.
 
 A tester's copy fires no strategy until an unlock file is loaded. That file is sent separately. It is not in the public project. The keys for a brokerage stay on the computer that typed them.
 

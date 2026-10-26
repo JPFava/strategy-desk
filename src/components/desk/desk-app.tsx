@@ -1383,21 +1383,6 @@ export function DeskApp() {
               Recalculate
             </button>
           </form>
-          <div className="flex items-center gap-3">
-            <Switch.Root
-              checked={false}
-              onCheckedChange={() => undefined}
-              aria-label="Live"
-              data-testid="live-switch"
-              className="relative h-8 w-14 shrink-0 rounded-full bg-line outline-none focus-visible:ring-2 focus-visible:ring-bronze"
-            >
-              <Switch.Thumb className="desk-thumb absolute top-1 left-0 block size-6 translate-x-1 rounded-full bg-paper" />
-            </Switch.Root>
-            <p className="max-w-xs text-sm text-pretty text-muted">
-              <span className="font-medium text-paper">Orders stay off. </span>
-              Arm them on the Alpaca panel. A restart turns them off. A live order also needs the live key.
-            </p>
-          </div>
         </div>
       </header>
 
