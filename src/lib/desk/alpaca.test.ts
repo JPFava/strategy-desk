@@ -64,6 +64,22 @@ test("a flat account buys the next valid signal and does not invent the ones it 
     4,
   );
   assert.deepEqual(missed, [{ index: 1, side: "sell" }]);
+  const flat = missedSignals(
+    [
+      { signalBuy: true, signalSell: false, sellHold: false },
+      { signalBuy: false, signalSell: true, sellHold: false },
+    ],
+    [],
+    0,
+  );
+  assert.deepEqual(flat, [
+    { index: 0, side: "buy" },
+    { index: 1, side: "sell" },
+  ]);
+  assert.deepEqual(
+    missedSignals([{ signalBuy: false, signalSell: true, sellHold: false }], [{ index: 0, side: "sell" }], 0),
+    [],
+  );
 });
 
 test("a closed market and a daily loss stop refuse a naked order", () => {

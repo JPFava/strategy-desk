@@ -263,7 +263,7 @@ export function missedSignals(
     else if (didSell && !didBuy) long = true;
     const row = rows[i];
     if (!long && row?.signalBuy && !didBuy) missed.push({ index: i, side: "buy" });
-    if (long && row?.signalSell && !row.sellHold && !didSell) missed.push({ index: i, side: "sell" });
+    if (row?.signalSell && !row.sellHold && !didSell) missed.push({ index: i, side: "sell" });
   }
   missed.reverse();
   return missed;

@@ -911,7 +911,7 @@ export function ChartPane({
       const x = xOf(fill.index, view, plotW);
       const buy = fill.side === "buy";
       const y = buy ? yOf(b.l) + 11 : yOf(b.h) - 11;
-      markTriangle(ctx, x, y, buy, false);
+      markTriangle(ctx, x, Math.min(plot.y + plot.h - 8, Math.max(plot.y + 8, y)), buy, false);
     }
     for (const mark of missed ?? []) {
       if (mark.index < view.start || mark.index >= view.end) continue;
@@ -920,7 +920,7 @@ export function ChartPane({
       const x = xOf(mark.index, view, plotW);
       const buy = mark.side === "buy";
       const y = buy ? yOf(b.l) + 22 : yOf(b.h) - 22;
-      markTriangle(ctx, x, y, buy, true);
+      markTriangle(ctx, x, Math.min(plot.y + plot.h - 8, Math.max(plot.y + 8, y)), buy, true);
     }
 
     if (mark != null && mark >= view.start && mark < view.end) {
