@@ -76,6 +76,7 @@ export function strategiesOff(params: DeskParams): DeskParams {
   side(next.rti.negative);
   side(next.rti.reversal);
   side(next.rti.below);
+  side(next.rti.above);
   side(next.vwap);
   side(next.vwapPx);
   side(next.ema20);
@@ -140,6 +141,9 @@ export function applyUnlock(edited: DeskParams, file: UnlockFile): DeskParams {
   });
   take("rtiBelow", () => {
     next.rti.below = structuredClone(edited.rti.below);
+  });
+  take("rtiAbove", () => {
+    next.rti.above = structuredClone(edited.rti.above);
   });
   take("vwap", () => {
     next.vwap = structuredClone(edited.vwap);

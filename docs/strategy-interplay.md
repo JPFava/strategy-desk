@@ -188,6 +188,14 @@ A straight rise or a straight fall does not pass. The vote stays true while that
 
 **With others.** This is the buy for "the averages are stacked and the market is exhausted." Put the EMA touch in the same AND, or in the same matrix row, as this card. It will not fire often at a level of 1. That is the point.
 
+### RTI above
+
+**Idea.** The reading is stretched to the high side. Sell only. There is no buy on this card. It starts off. The level starts at **50**. The level may be negative.
+
+**Sell.** The reading is at or over the level. A reading of exactly 50 passes. Lower the level if you want the sale earlier.
+
+**With others.** Put this in the same AND as the upper band when both the price stretch and the RTI stretch have to be true. OR it with the upper band when either stretch should sell. It is not the RTI line card: that card sells when the reading is under a value, and this card sells when it is over one.
+
 ### RTI line
 
 **Idea.** The reading compared with a slower average of itself, or with the direction of that average, or with a number. Starter length of that average is **10**. Both sides start off. A side passes when any checked test on the card passes.

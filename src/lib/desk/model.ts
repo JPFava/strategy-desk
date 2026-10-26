@@ -40,6 +40,7 @@ export type StrategyId =
   | "rtiNeg"
   | "rtiRev"
   | "rtiBelow"
+  | "rtiAbove"
   | "vwap"
   | "vwapPx"
   | "ema20"
@@ -91,6 +92,7 @@ export const STRATEGY_ORDER: StrategyId[] = [
   "rtiNeg",
   "rtiRev",
   "rtiBelow",
+  "rtiAbove",
   "vwap",
   "vwapPx",
   "ema20",
@@ -118,6 +120,7 @@ const STRATEGY_LABEL: Record<StrategyId, string> = {
   rtiNeg: "RTI negative",
   rtiRev: "RTI reversal",
   rtiBelow: "RTI below",
+  rtiAbove: "RTI above",
   vwap: "VWAP in the candle",
   vwapPx: "Close versus VWAP",
   ema20: "20-hour EMA",
@@ -172,6 +175,7 @@ export function strategyShort(id: StrategyId, params?: DeskParams): string {
   if (id === "rtiNeg") return "RTI < 0";
   if (id === "rtiRev") return "RTI turn";
   if (id === "rtiBelow") return "RTI low";
+  if (id === "rtiAbove") return "RTI high";
   if (id === "vwap") return "VWAP";
   if (id === "vwapPx") return "vs VWAP";
   if (id === "ema20") return params ? `${Math.round(params.ema20.hours)}h` : "Fast";
@@ -327,6 +331,7 @@ export type RtiSetup = {
   negative: SideRule;
   reversal: RtiReversal;
   below: RtiBelow;
+  above: RtiBelow;
 };
 
 export type EmaRule = SideRule & {
@@ -425,6 +430,7 @@ export function defaultParams(): DeskParams {
       negative: { buyOn: false, sellOn: false },
       reversal: { buyOn: false, sellOn: false, bars: 6 },
       below: { buyOn: false, sellOn: false, level: 1 },
+      above: { buyOn: false, sellOn: false, level: 50 },
     },
     vwap: { buyOn: true, sellOn: false },
     vwapPx: { buyOn: false, sellOn: true },
@@ -503,6 +509,7 @@ export function normalizeJoins(params: DeskParams): DeskParams {
       negative: stamp(params.rti.negative),
       reversal: stamp(params.rti.reversal),
       below: stamp(params.rti.below),
+      above: stamp(params.rti.above),
     },
     vwap: stamp(params.vwap),
     vwapPx: stamp(params.vwapPx),
@@ -566,6 +573,8 @@ export function ruleSideOn(params: DeskParams, id: StrategyId, side: "buy" | "se
       return on(params.rti.reversal);
     case "rtiBelow":
       return side === "buy" && params.rti.below.buyOn;
+    case "rtiAbove":
+      return side === "sell" && params.rti.above.sellOn;
     case "vwap":
       return on(params.vwap);
     case "vwapPx":

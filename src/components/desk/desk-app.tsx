@@ -285,6 +285,7 @@ function mergeRti(base: DeskParams["rti"], saved: unknown): DeskParams["rti"] {
       return { ...merged, bars: typeof node.bars === "number" ? node.bars : base.reversal.bars };
     })(),
     below: mergeSides(base.below, raw.below),
+    above: mergeSides(base.above, raw.above),
   };
 }
 
@@ -1891,6 +1892,35 @@ export function DeskApp() {
                       value={params.rti.below.level}
                       step={0.1}
                       onChange={(level) => setParams((p) => ({ ...p, rti: { ...p.rti, below: { ...p.rti.below, level } } }))}
+                    />
+                  </div>
+                </div>
+              </article>
+))}
+
+{hold(["rtiAbove"], (
+              <article className="rounded-lg border border-line p-3">
+                <div>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <h4 className="text-sm font-medium">Sell above</h4>
+                    <SideSwitch
+                      side="sell"
+                      checked={params.rti.above.sellOn}
+                      join={asJoin(params.rti.above.sellJoin)}
+                      label="RTI sell above"
+                      onChange={(sellOn) => setParams((p) => ({ ...p, rti: { ...p.rti, above: { ...p.rti.above, sellOn } } }))}
+                      onJoin={(sellJoin) => setParams((p) => ({ ...p, rti: { ...p.rti, above: { ...p.rti.above, sellJoin } } }))}
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-muted text-pretty">
+                    Sell when the reading is at or over this level. The level can be negative. A level of 50 passes on 50 and on every higher reading. This test does not buy.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <NumField
+                      label="At or over"
+                      value={params.rti.above.level}
+                      step={0.1}
+                      onChange={(level) => setParams((p) => ({ ...p, rti: { ...p.rti, above: { ...p.rti.above, level } } }))}
                     />
                   </div>
                 </div>

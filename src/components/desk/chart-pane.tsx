@@ -118,7 +118,7 @@ function strategyDraws(id: SeriesId, params: DeskParams): boolean {
     case "mfi":
       return shown(params.mfi);
     case "rti":
-      return shown(params.rti.direction) || shown(params.rti.strength) || shown(params.rti.line) || shown(params.rti.negative) || shown(params.rti.reversal) || shown(params.rti.below);
+      return shown(params.rti.direction) || shown(params.rti.strength) || shown(params.rti.line) || shown(params.rti.negative) || shown(params.rti.reversal) || shown(params.rti.below) || shown(params.rti.above);
     case "rtiLine":
       return shown(params.rti.line);
     default:
@@ -1074,6 +1074,7 @@ export function ChartPane({
       if (shown(params.rti.direction)) levels.push(params.rti.direction.up, params.rti.direction.down);
       if (shown(params.rti.strength)) levels.push(50 + params.rti.strength.buyFloor, 50 - params.rti.strength.sellFloor);
       if (shown(params.rti.below)) levels.push(params.rti.below.level);
+      if (shown(params.rti.above)) levels.push(params.rti.above.level);
       for (const level of levels) guides.push({ y: yOf(level), color: rgba(deskColors.slate, 0.4) });
     }
     ctx.setLineDash([3, 3]);

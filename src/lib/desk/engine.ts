@@ -309,6 +309,11 @@ function tune(params: DeskParams, account: AccountSettings): Tuned {
           sellOn: false,
           level: clampNum(params.rti.below.level, -200, 200, 1),
         },
+        above: {
+          ...side(params.rti.above),
+          buyOn: false,
+          level: clampNum(params.rti.above.level, -200, 200, 50),
+        },
       },
       vwap: side(params.vwap),
       vwapPx: side(params.vwapPx),
@@ -781,6 +786,7 @@ export function rtiFacts(
   revBuy: boolean;
   revSell: boolean;
   lowBuy: boolean;
+  highSell: boolean;
 } {
   const rti = ind.rti[i];
   const line = ind.rtiLine[i];
@@ -817,6 +823,7 @@ export function rtiFacts(
     revBuy: swing.valley,
     revSell: swing.peak,
     lowBuy: ready && (rti as number) <= params.rti.below.level + 1e-9,
+    highSell: ready && (rti as number) >= params.rti.above.level - 1e-9,
   };
 }
 
@@ -1233,6 +1240,19 @@ export function explainStrategies(
     buy: oneCheck("At or under", rti.lowBuy, lowText),
     sell: oneCheck("Sell", false, "Buy below never sells."),
   });
+  const highText = num(rti.rti)
+    ? `Relative trend ${px(rti.rti)} versus a sell level of ${px(params.rti.above.level)}. Sell only at or over that level. This test does not buy.`
+    : "Relative trend is not ready.";
+  reads.push({
+    id: "rtiAbove",
+    name: strategyName("rtiAbove", params),
+    wantBuy: false,
+    wantSell: rti.highSell,
+    buyOn: false,
+    sellOn: params.rti.above.sellOn,
+    buy: oneCheck("Buy", false, "Sell above never buys."),
+    sell: oneCheck("At or over", rti.highSell, highText),
+  });
 
   const inside = vwapFacts(i, bars, ind);
   const insideDetail = num(inside.vwap)
@@ -1457,6 +1477,7 @@ function barVotes(i: number, bars: Bar[], ind: Indicators, params: DeskParams, i
     asJoin(params.rti.reversal.sellJoin),
   );
   add("rtiBelow", params.rti.below.buyOn, false, rti.lowBuy, false, asJoin(params.rti.below.buyJoin), "and");
+  add("rtiAbove", false, params.rti.above.sellOn, false, rti.highSell, "and", asJoin(params.rti.above.sellJoin));
   const inside = vwapFacts(i, bars, ind);
   add("vwap", params.vwap.buyOn, params.vwap.sellOn, inside.contains, inside.contains, asJoin(params.vwap.buyJoin), asJoin(params.vwap.sellJoin));
   const side = vwapPxFacts(i, bars, ind);
