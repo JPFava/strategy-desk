@@ -174,7 +174,7 @@ export function AlpacaPanel({
         <p className="text-xs text-muted">{view ? (view.paper ? "Paper account" : "Live account") : "Not connected"}</p>
       </div>
       <p className="mt-2 text-sm text-muted text-pretty">
-        This page only displays the account and arms the desk. The process on this computer sends the order, and only after it reads the position, the open orders, and the clock. A restart leaves orders off. It sends a limit for the last closed bar: a buy when the account is flat, a sell when it is long. It does not replace a signal that passed while orders were off. Sleep stops it. An open triangle is a signal that was not traded. A solid triangle is a fill.
+        This page only displays the account and arms the desk. The process on this computer sends the order, and only after it reads the position, the open orders, and the clock. A restart leaves orders off. It sends a limit for the last closed bar: a buy when the account is flat, a sell when it is long. It does not replace a signal that passed while orders were off. Sleep stops it. An open triangle is an order Alpaca did not fill. A solid triangle is a fill. A signal that was never sent has no triangle.
       </p>
       {error && <p className="mt-2 text-sm text-sell">{error}</p>}
       {view && (

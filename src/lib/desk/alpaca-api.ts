@@ -122,7 +122,7 @@ export const alpacaLook = createServerFn({ method: "POST" })
       const [clock, account, orders, history, fills] = await Promise.all([
         alpacaFetch(broker, "/v2/clock"),
         alpacaFetch(broker, "/v2/account"),
-        alpacaFetch(broker, `/v2/orders?status=all&limit=50&direction=desc${symbol ? `&symbols=${encodeURIComponent(symbol)}` : ""}`),
+        alpacaFetch(broker, `/v2/orders?status=all&limit=100&direction=desc${symbol ? `&symbols=${encodeURIComponent(symbol)}` : ""}`),
         alpacaFetch(broker, from > 0 ? historyPath(from, to) : "/v2/account/portfolio/history?period=1M&timeframe=1D"),
         alpacaFetch(
           broker,

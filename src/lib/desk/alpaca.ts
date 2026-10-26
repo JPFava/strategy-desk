@@ -328,6 +328,38 @@ export function bookCash(
   return Math.max(0, cash);
 }
 
+export function unfilledMarks(
+  orders: readonly { side: string; status: string; submittedAt: string; clientOrderId?: string; filledQty?: number }[],
+  times: readonly number[],
+  fills: readonly { index: number; side: string }[],
+): { index: number; side: AlpacaSide }[] {
+  const filled = new Set(fills.map((fill) => `${fill.index}:${fill.side}`));
+  const seen = new Set<string>();
+  const out: { index: number; side: AlpacaSide }[] = [];
+  for (const order of orders) {
+    const side = order.side === "buy" || order.side === "sell" ? order.side : null;
+    if (!side || order.status === "filled" || order.status === "replaced" || (order.filledQty ?? 0) > 0) continue;
+    let index = -1;
+    const stamp = /^d-[A-Z0-9.\-]+-(?:buy|sell)-(\d+)$/.exec(order.clientOrderId ?? "");
+    if (stamp) {
+      const barTime = Number(stamp[1]) * 1000;
+      index = times.indexOf(barTime);
+      if (index < 0) index = barIndexAt(times, barTime);
+    }
+    if (index < 0) {
+      const submitted = Date.parse(order.submittedAt);
+      if (Number.isFinite(submitted)) index = barIndexAt(times, submitted);
+    }
+    if (index < 0) continue;
+    const key = `${index}:${side}`;
+    if (filled.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ index, side });
+  }
+  out.sort((a, b) => a.index - b.index);
+  return out;
+}
+
 export function barIndexAt(times: readonly number[], time: number): number {
   let index = -1;
   for (let i = 0; i < times.length; i++) {

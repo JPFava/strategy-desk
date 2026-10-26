@@ -6,7 +6,7 @@ import { Check, ChevronDown, ChevronUp, X } from "lucide-react";
 import { ChartPane } from "@/components/desk/chart-pane";
 import { AlpacaPanel } from "@/components/desk/alpaca-panel";
 import { explainAt, simulate, viewForWindow, type Explain, type Fill, type SimResult, type Stats, type StrategyRead } from "@/lib/desk/engine";
-import { barIndexAt, bookCash, closedBarIndex, drawdownPct, equityOnBars, missedSignals, nextAccountSignal, openingPosition, roundTrips, seriesReturnPct } from "@/lib/desk/alpaca";
+import { barIndexAt, bookCash, closedBarIndex, drawdownPct, equityOnBars, nextAccountSignal, openingPosition, roundTrips, seriesReturnPct, unfilledMarks } from "@/lib/desk/alpaca";
 import { alpacaBars } from "@/lib/desk/session-api";
 import type { AlpacaLook } from "@/lib/desk/alpaca-api";
 import {
@@ -1140,10 +1140,9 @@ export function DeskApp() {
       : "none"
     : (last?.action ?? "none");
   const missed = useMemo(() => {
-    if (!showingAccount || !ledgerBook || !accountView) return undefined;
-    const rows = ledgerBook.trace.map((row) => ({ signalBuy: row.signalBuy, signalSell: row.signalSell, sellHold: row.sellHold }));
-    return missedSignals(rows, accountFills, accountView.positionQty);
-  }, [showingAccount, ledgerBook, accountView, accountFills]);
+    if (!showingAccount || !tape || !accountView) return undefined;
+    return unfilledMarks(accountView.orders, tape.bars.map((bar) => bar.t), accountFills);
+  }, [showingAccount, tape, accountView, accountFills]);
   const readBook = showingAccount && ledgerBook ? ledgerBook : result;
   const since = accountView?.fills[0]?.time ?? accountView?.history[0]?.time ?? 0;
 
@@ -2286,10 +2285,10 @@ export function DeskApp() {
                   {showingAccount && accountView
                     ? `${accountName} is ${accountView.positionQty > 0 ? `long ${formatQty(accountView.positionQty)}` : "flat"}. ${
                         missed?.some((mark) => mark.index === explain.index)
-                          ? "This bar's signal was valid and was not traded."
+                          ? "This bar was sent and Alpaca did not fill it."
                           : accountFills.some((fill) => fill.index === explain.index)
                             ? "Alpaca filled this bar."
-                            : "This bar has no Alpaca fill."
+                            : "This bar was not sent."
                       } The next order follows that position, not the play-money book.`
                     : <>
                         {explain.book === "flat" ? "Book was flat." : `Book was long ${formatQty(explain.shares)} shares.`}{" "}

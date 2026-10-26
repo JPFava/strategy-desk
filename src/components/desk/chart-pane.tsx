@@ -505,7 +505,7 @@ function GraphLegend({
             Down candle and sell
           </span>
           {accountMarks && (
-            <span className="flex h-11 items-center gap-2 px-2 text-xs text-muted">Open triangle: signal, no trade. Solid triangle: Alpaca fill.</span>
+            <span className="flex h-11 items-center gap-2 px-2 text-xs text-muted">Open triangle: sent, not filled. Solid triangle: Alpaca fill.</span>
           )}
         </>
       )}

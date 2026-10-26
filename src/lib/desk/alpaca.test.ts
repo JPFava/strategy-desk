@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { barIndexAt, bookCash, clientOrderId, dailyStopHit, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, openingPosition, planOrder, readFills, readHistory, readLiveArm, roundTrips, LIVE_KIND } from "./alpaca.ts";
+import { barIndexAt, bookCash, clientOrderId, dailyStopHit, drawdownPct, equityOnBars, issueLiveArm, missedSignals, nextAccountSignal, openingPosition, planOrder, readFills, readHistory, readLiveArm, roundTrips, unfilledMarks, LIVE_KIND } from "./alpaca.ts";
 
 const base = {
   paper: true,
@@ -79,6 +79,19 @@ test("a flat account buys the next valid signal and does not invent the ones it 
   assert.deepEqual(
     missedSignals([{ signalBuy: false, signalSell: true, sellHold: false }], [{ index: 0, side: "sell" }], 0),
     [],
+  );
+  const times = [1_000_000, 1_300_000];
+  assert.deepEqual(
+    unfilledMarks(
+      [
+        { side: "buy", status: "expired", submittedAt: "", clientOrderId: "d-SOXL-buy-1000", filledQty: 0 },
+        { side: "sell", status: "filled", submittedAt: "", clientOrderId: "d-SOXL-sell-1300", filledQty: 1 },
+        { side: "sell", status: "canceled", submittedAt: "1970-01-01T00:21:40.000Z", filledQty: 0 },
+      ],
+      times,
+      [{ index: 1, side: "sell" }],
+    ),
+    [{ index: 0, side: "buy" }],
   );
 });
 
